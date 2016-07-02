@@ -1,0 +1,11 @@
+<resources>
+    <string name="app_name">ECard</string>
+    <string name="title_activity_scrolling">ecard</string>
+    <string name="action_settings">Settings</string>
+
+    <!-- TODO: Remove or change this placeholder text -->
+    <string name="hello_blank_fragment">Hello World</string>
+    <string name="otg">OTG</string>
+    <string name="ble">BLE</string>
+
+</resources>

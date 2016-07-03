@@ -1,0 +1,10 @@
+[
+    {
+        "merged": "/Users/qingyuan/Develop/workspaces/git/nfcard/app/build/intermediates/res/merged/debug/drawable/window.xml",
+        "source": "/Users/qingyuan/Develop/workspaces/git/nfcard/app/src/main/res/drawable/window.xml"
+    },
+    {
+        "merged": "/Users/qingyuan/Develop/workspaces/git/iCard/android/ECard/nfc/build/intermediates/res/merged/debug/drawable/window.xml",
+        "source": "/Users/qingyuan/Develop/workspaces/git/iCard/android/ECard/nfc/src/main/res/drawable/window.xml"
+    }
+]

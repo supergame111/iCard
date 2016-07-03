@@ -2,5 +2,9 @@
     {
         "merged": "/Users/qingyuan/Develop/workspaces/AndroidStudioProjects/ECard/reader/build/intermediates/res/merged/androidTest/debug/drawable-xhdpi-v4/ic_launcher.png",
         "source": "/Users/qingyuan/Develop/workspaces/AndroidStudioProjects/ECard/reader/build/intermediates/bundles/debug/res/drawable-xhdpi-v4/ic_launcher.png"
+    },
+    {
+        "merged": "/Users/qingyuan/Develop/workspaces/git/iCard/android/ECard/reader/build/intermediates/res/merged/androidTest/debug/drawable-xhdpi-v4/ic_launcher.png",
+        "source": "/Users/qingyuan/Develop/workspaces/git/iCard/android/ECard/reader/build/intermediates/bundles/debug/res/drawable-xhdpi-v4/ic_launcher.png"
     }
 ]

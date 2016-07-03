@@ -6,8 +6,6 @@ import android.content.Intent;
 import android.hardware.usb.UsbDevice;
 import android.hardware.usb.UsbManager;
 import android.os.Handler;
-import android.util.Log;
-import android.widget.Toast;
 
 /**
  * Created by qingyuan on 2016/6/30.

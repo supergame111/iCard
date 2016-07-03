@@ -1,0 +1,42 @@
+[
+    {
+        "merged": "/Users/qingyuan/Develop/workspaces/git/iCard/android/ECard/nfc/build/intermediates/res/merged/debug/drawable-xhdpi-v4/share.png",
+        "source": "/Users/qingyuan/Develop/workspaces/git/iCard/android/ECard/nfc/src/main/res/drawable-xhdpi/share.png"
+    },
+    {
+        "merged": "/Users/qingyuan/Develop/workspaces/git/nfcard/app/build/intermediates/res/merged/debug/drawable-xhdpi-v4/share.png",
+        "source": "/Users/qingyuan/Develop/workspaces/git/nfcard/app/src/main/res/drawable-xhdpi/share.png"
+    },
+    {
+        "merged": "/Users/qingyuan/Develop/workspaces/git/iCard/android/ECard/nfc/build/intermediates/res/merged/debug/drawable-xhdpi-v4/back.png",
+        "source": "/Users/qingyuan/Develop/workspaces/git/iCard/android/ECard/nfc/src/main/res/drawable-xhdpi/back.png"
+    },
+    {
+        "merged": "/Users/qingyuan/Develop/workspaces/git/nfcard/app/build/intermediates/res/merged/debug/drawable-xhdpi-v4/back.png",
+        "source": "/Users/qingyuan/Develop/workspaces/git/nfcard/app/src/main/res/drawable-xhdpi/back.png"
+    },
+    {
+        "merged": "/Users/qingyuan/Develop/workspaces/git/iCard/android/ECard/nfc/build/intermediates/res/merged/debug/drawable-xhdpi-v4/reset.png",
+        "source": "/Users/qingyuan/Develop/workspaces/git/iCard/android/ECard/nfc/src/main/res/drawable-xhdpi/reset.png"
+    },
+    {
+        "merged": "/Users/qingyuan/Develop/workspaces/git/iCard/android/ECard/nfc/build/intermediates/res/merged/debug/drawable-xhdpi-v4/copy.png",
+        "source": "/Users/qingyuan/Develop/workspaces/git/iCard/android/ECard/nfc/src/main/res/drawable-xhdpi/copy.png"
+    },
+    {
+        "merged": "/Users/qingyuan/Develop/workspaces/git/nfcard/app/build/intermediates/res/merged/debug/drawable-xhdpi-v4/reset.png",
+        "source": "/Users/qingyuan/Develop/workspaces/git/nfcard/app/src/main/res/drawable-xhdpi/reset.png"
+    },
+    {
+        "merged": "/Users/qingyuan/Develop/workspaces/git/nfcard/app/build/intermediates/res/merged/debug/drawable-xhdpi-v4/nfcard.png",
+        "source": "/Users/qingyuan/Develop/workspaces/git/nfcard/app/src/main/res/drawable-xhdpi/nfcard.png"
+    },
+    {
+        "merged": "/Users/qingyuan/Develop/workspaces/git/nfcard/app/build/intermediates/res/merged/debug/drawable-xhdpi-v4/copy.png",
+        "source": "/Users/qingyuan/Develop/workspaces/git/nfcard/app/src/main/res/drawable-xhdpi/copy.png"
+    },
+    {
+        "merged": "/Users/qingyuan/Develop/workspaces/git/iCard/android/ECard/nfc/build/intermediates/res/merged/debug/drawable-xhdpi-v4/nfcard.png",
+        "source": "/Users/qingyuan/Develop/workspaces/git/iCard/android/ECard/nfc/src/main/res/drawable-xhdpi/nfcard.png"
+    }
+]

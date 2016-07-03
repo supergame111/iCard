@@ -1,0 +1,10 @@
+[
+    {
+        "merged": "/Users/qingyuan/Develop/workspaces/git/iCard/android/ECard/nfc/build/intermediates/res/merged/debug/raw-zh-rCN/zip.tab",
+        "source": "/Users/qingyuan/Develop/workspaces/git/iCard/android/ECard/nfc/src/main/res/raw-zh-rCN/zip.tab"
+    },
+    {
+        "merged": "/Users/qingyuan/Develop/workspaces/git/nfcard/app/build/intermediates/res/merged/debug/raw-zh-rCN/zip.tab",
+        "source": "/Users/qingyuan/Develop/workspaces/git/nfcard/app/src/main/res/raw-zh-rCN/zip.tab"
+    }
+]

@@ -1,9 +1,9 @@
 package ftsafe.pboc;
 
-import ftsafe.sdk.Answer;
-import ftsafe.sdk.MiniPay;
-import ftsafe.utils.BaseFunction;
-import ftsafe.utils.Utils;
+import ftsafe.common.Util;
+import ftsafe.reader.Answer;
+import ftsafe.reader.MiniPay;
+import ftsafe.common.BaseFunction;
 
 public class Terminal {
 	BaseFunction bf = new BaseFunction();
@@ -34,7 +34,7 @@ public class Terminal {
 				break;
 		}
 
-		answer = reader.sendAPDU(Utils.hexStringToBytes(cmd));
+		answer = reader.sendAPDU(Util.toBytes(cmd));
 		if(!answer.sw.equals(Answer.SW_SUCCESS))
 			return answer.sw;
 		return answer.value;
@@ -67,7 +67,7 @@ public class Terminal {
 				cmd = cmd.concat("00");
 				break;
 		}
-		answer =  reader.sendAPDU(Utils.hexStringToBytes(cmd));
+		answer =  reader.sendAPDU(Util.toBytes(cmd));
 		if(!answer.sw.equals(Answer.SW_SUCCESS))
 			return answer.sw;
 		return answer.value;
@@ -101,7 +101,7 @@ public class Terminal {
 				cmd = cmd.concat("00");
 				break;
 		}
-		answer =  reader.sendAPDU(Utils.hexStringToBytes(cmd));
+		answer =  reader.sendAPDU(Util.toBytes(cmd));
 		if(!answer.sw.equals(Answer.SW_SUCCESS))
 			return answer.sw;
 		return answer.value;
@@ -118,7 +118,7 @@ public class Terminal {
 		StringBuffer Lc =  new StringBuffer();
 		bf.ftLongToHex(data.length(), Lc, 0);
 		cmd = cmd+line+offset+Lc+data;
-		answer =  reader.sendAPDU(Utils.hexStringToBytes(cmd));
+		answer =  reader.sendAPDU(Util.toBytes(cmd));
 		if(!answer.sw.equals(Answer.SW_SUCCESS))
 			return answer.sw;
 		return answer.value;
@@ -158,7 +158,7 @@ public class Terminal {
 				break;
 		}
 		cmd = p1 + "00";
-		answer =  reader.sendAPDU(Utils.hexStringToBytes(cmd));
+		answer =  reader.sendAPDU(Util.toBytes(cmd));
 		if(!answer.sw.equals("90".concat(p1)))
 			return answer.sw;
 		return answer.value;
@@ -171,7 +171,7 @@ public class Terminal {
 	public String getTerminalResponse(String datalen){
 		cmd = "7E150000";
 		cmd = cmd.concat(datalen);
-		answer =  reader.sendAPDU(Utils.hexStringToBytes(cmd));
+		answer =  reader.sendAPDU(Util.toBytes(cmd));
 		if(!answer.sw.equals(Answer.SW_SUCCESS) || !answer.sw.startsWith("61"))
 			return answer.sw;
 		return answer.value;
@@ -186,7 +186,7 @@ public class Terminal {
 		StringBuffer Lc =  new StringBuffer();
 		bf.ftLongToHex(multiplecmd.length(), Lc, 0);
 		cmd = cmd + Lc + multiplecmd + "00";
-		answer = reader.sendAPDU(Utils.hexStringToBytes(cmd));
+		answer = reader.sendAPDU(Util.toBytes(cmd));
 		if(!answer.sw.equals(Answer.SW_SUCCESS))
 			return answer.sw;
 		return answer.value;
@@ -201,7 +201,7 @@ public class Terminal {
 		StringBuffer Lc =  new StringBuffer();
 		bf.ftLongToHex(certificate.length(), Lc, 0);
 		cmd = cmd + Lc + certificate + "00";
-		answer =  reader.sendAPDU(Utils.hexStringToBytes(cmd));
+		answer =  reader.sendAPDU(Util.toBytes(cmd));
 		if(!answer.sw.equals(Answer.SW_SUCCESS))
 			return answer.sw;
 		return answer.value;
@@ -251,7 +251,7 @@ public class Terminal {
 			pkg[i] = certificate.substring(i*510, (i+1)*510);
 			bf.ftLongToHex(pkg[i].length(), Lc, 0);
 			cmd = cmd + p1 + p2 + Lc + pkg[i];
-			answer =  reader.sendAPDU(Utils.hexStringToBytes(cmd));
+			answer =  reader.sendAPDU(Util.toBytes(cmd));
 			if(!answer.sw.equals(Answer.SW_SUCCESS))
 				return answer.sw;
 		}
@@ -306,7 +306,7 @@ public class Terminal {
 			pkg[i] = certificate.substring(i*510, (i+1)*510);
 			bf.ftLongToHex(pkg[i].length(), Lc, 0);
 			cmd = cmd + p1 + p2 + Lc + pkg[i];
-			answer =  reader.sendAPDU(Utils.hexStringToBytes(cmd));
+			answer =  reader.sendAPDU(Util.toBytes(cmd));
 			if(!answer.sw.equals(Answer.SW_SUCCESS))
 				return answer.sw;
 		}
@@ -342,7 +342,7 @@ public class Terminal {
 		}
 		bf.ftLongToHex(terminalInfo.length(), Lc, 0);
 		cmd = cmd + p1 + p2 + Lc +terminalInfo;
-		answer =  reader.sendAPDU(Utils.hexStringToBytes(cmd));
+		answer =  reader.sendAPDU(Util.toBytes(cmd));
 		if(!answer.sw.equals(Answer.SW_SUCCESS))
 			return answer.sw;
 		return answer.value;
@@ -381,7 +381,7 @@ public class Terminal {
 				break;
 		}
 		cmd = cmd + p1 + p2;
-		answer =  reader.sendAPDU(Utils.hexStringToBytes(cmd));
+		answer =  reader.sendAPDU(Util.toBytes(cmd));
 		if(!answer.sw.equals(Answer.SW_SUCCESS) && !answer.sw.startsWith("61"))
 			return answer.sw;
 		return answer.value;
@@ -393,7 +393,7 @@ public class Terminal {
 	 */
 	public String getCertResponse(String dataLen){
 		cmd = "7E240000" + dataLen;
-		answer =  reader.sendAPDU(Utils.hexStringToBytes(cmd));
+		answer =  reader.sendAPDU(Util.toBytes(cmd));
 		if(!answer.sw.equals(Answer.SW_SUCCESS) && !answer.sw.startsWith("61"))
 			return answer.sw;
 		return answer.value;
@@ -423,7 +423,7 @@ public class Terminal {
 		String p2 = "00";
 		String Le = "21";
 		cmd = cmd + p1 + p2 + Le;
-		answer =  reader.sendAPDU(Utils.hexStringToBytes(cmd));
+		answer =  reader.sendAPDU(Util.toBytes(cmd));
 		if(!answer.sw.equals(Answer.SW_SUCCESS))
 			return answer.sw;
 		return answer.value;

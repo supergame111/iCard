@@ -2,7 +2,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context="com.ftsafe.iccd.ecard.fragments.FirstFragment"
+    tools:context="com.ftsafe.iccd.ecard.ui.fragments.FirstFragment"
     android:orientation="vertical">
 
     <android.support.design.widget.AppBarLayout
@@ -19,22 +19,34 @@
                 android:id="@+id/otg_btn"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_weight="1"
                 android:text="@string/otg" />
 
             <Button
                 android:id="@+id/ble_btn"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_weight="1"
                 android:text="@string/ble" />
+            <Button
+                android:id="@+id/nfc_btn"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/nfc" />
+
         </android.support.v7.widget.LinearLayoutCompat>
 
     </android.support.design.widget.AppBarLayout>
 
 
     <GridView
-        android:id="@+id/grid_view"
+        android:id="@+id/gridview"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content">
+        android:layout_height="match_parent"
+        android:layout_marginTop="10dp"
+        android:numColumns="4"
+        android:gravity="center">
 
     </GridView>
 

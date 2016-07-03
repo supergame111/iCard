@@ -27,6 +27,8 @@ public class Config {
 
     public static final String REFUSE_SERVICE = "无法连接服务中心。";
 
+    public static final int ACTIVITY_STATUS = 0xE101;
+
 
     public static void cachedToken(Context context, String token) {
         SharedPreferences sp = context.getSharedPreferences(APP_ID, context.MODE_PRIVATE);

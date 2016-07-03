@@ -25,7 +25,7 @@ public class SHA1 {
 	   * @return ACSII类型数据 长度20字节
 	   */
 	    public static String doSHA1(String inStr) {
-	        MessageDigest md = null;
+	        MessageDigest md;
 	        String outStr = null;
 	        try {
 	            md = MessageDigest.getInstance("SHA-1");           //选择SHA-1，也可以选择MD5
@@ -44,7 +44,7 @@ public class SHA1 {
 		   * @return ACSII类型数据 长度20字节
 		   */
 		    public static String doSHA1(byte[] inByte) {
-		        MessageDigest md = null;
+		        MessageDigest md;
 		        String outStr = null;
 		        try {
 		            md = MessageDigest.getInstance("SHA-1");     //选择SHA-1，也可以选择MD5

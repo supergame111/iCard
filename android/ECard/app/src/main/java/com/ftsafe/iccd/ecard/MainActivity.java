@@ -1,5 +1,6 @@
 package com.ftsafe.iccd.ecard;
 
+import android.app.PendingIntent;
 import android.app.ProgressDialog;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
@@ -51,8 +52,11 @@ public class MainActivity extends FragmentActivity implements OnMenuTabClickList
     private BlueToothReceiver mBleReceiver;
     private UsbManager mUsbManager;
     private UsbDevice mUsbDevice;
+    private UsbBrocastReceiver mUsbReceiver;
     private ArrayList<BluetoothDevice> mBlueToothDeviceList;
     private BluetoothDevice mBluetoothDevice;
+
+    private PendingIntent mPermissionIntet;
 
     private ProgressDialog mProgressDialog;
     private Fragment mCurrentFragment;
@@ -82,6 +86,9 @@ public class MainActivity extends FragmentActivity implements OnMenuTabClickList
 
         // 注册BLE广播
         registerBLEBrocastReceiver();
+
+        // 注册OTG广播
+        registerOTGBroadcastReceiver();
 
         // 初始化Fragment
         if (findViewById(R.id.fragment_container) != null) {
@@ -186,6 +193,21 @@ public class MainActivity extends FragmentActivity implements OnMenuTabClickList
         registerReceiver(mBleReceiver, filter);
     }
 
+    private void registerOTGBroadcastReceiver() {
+        // 注册广播回调处理
+        UsbBrocastReceiver.registerCardStatusMonitoring(mHandler);
+        // 注册广播服务
+        mPermissionIntet = PendingIntent.getBroadcast(this, 0, new Intent("com.android.example.USB_PERMISSION"), 0);
+        IntentFilter filter = new IntentFilter("com.android.example.USB_PERMISSION");
+        mUsbReceiver = new UsbBrocastReceiver();
+        // 广播监听的动作
+        filter.addAction(UsbManager.ACTION_USB_DEVICE_ATTACHED);
+        filter.addAction(UsbManager.ACTION_USB_DEVICE_DETACHED);
+//        filter.addAction(UsbManager.ACTION_USB_ACCESSORY_ATTACHED);
+//        filter.addAction(UsbManager.ACTION_USB_ACCESSORY_DETACHED);
+        registerReceiver(mUsbReceiver, filter);
+    }
+
     private void configBottomBar(Bundle savedInstanceState) {
         mBottomBar = BottomBar.attach(this, savedInstanceState);
         mBottomBar.setItems(R.menu.menu_bottombar);
@@ -235,13 +257,20 @@ public class MainActivity extends FragmentActivity implements OnMenuTabClickList
     }
 
     private void openMiniPay() {
-        if (mUsbDevice == null)
-            mUsbDevice = discoverUSBDevice();
-        if (mUsbDevice != null) {
-            MiniPay = new MiniPay(MainActivity.this, mUsbManager);
-            MiniPay.openMiniPay(mUsbDevice);
-        } else {
-            Toast.makeText(this, "请插入设备", Toast.LENGTH_SHORT).show();
+        try {
+            if (mUsbDevice == null)
+                mUsbDevice = discoverUSBDevice();
+            if (mUsbDevice != null) {
+                MiniPay = new MiniPay(MainActivity.this, mUsbManager);
+                MiniPay.openMiniPay(mUsbDevice);
+
+                MiniPay.powerOn();
+
+            } else {
+                Toast.makeText(this, "请插入设备", Toast.LENGTH_SHORT).show();
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
         }
     }
 
@@ -376,8 +405,8 @@ public class MainActivity extends FragmentActivity implements OnMenuTabClickList
                     switch (msg.arg1) {
                         case UsbBrocastReceiver.USB_PERMISSION:
                             // 打开设备
-                            openMiniPay();
-                            Log.e(Config.APP_ID, "get Permission");
+                            // openMiniPay();
+                            // Log.e(Config.APP_ID, "get Permission");
                             break;
                         case UsbBrocastReceiver.USB_ATTACHED:
                             // 搜索设备
@@ -404,10 +433,10 @@ public class MainActivity extends FragmentActivity implements OnMenuTabClickList
 
     @Override
     public void onButtonClick4First(int position) {
-        switch (position){
+        switch (position) {
             case 0:
-                // 搜索OTG
-                discoverUSBDevice();
+                // 打开OTG
+                openMiniPay();
                 break;
             case 1:
                 // 搜索BLE
@@ -421,7 +450,7 @@ public class MainActivity extends FragmentActivity implements OnMenuTabClickList
                 startActivity(new Intent(MainActivity.this, TransactionLogActivity.class));
                 break;
             case 11:
-                Toast.makeText(this,""+position, Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "" + position, Toast.LENGTH_SHORT).show();
                 break;
             default:
                 break;

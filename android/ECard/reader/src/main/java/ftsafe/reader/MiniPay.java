@@ -8,7 +8,6 @@ import android.util.Log;
 import com.unionpay.minipay.device.MinipayDevice;
 
 import ftsafe.common.Util;
-import ftsafe.common.Utils;
 
 public class MiniPay extends Reader {
 
@@ -24,6 +23,7 @@ public class MiniPay extends Reader {
 
     @Override
     public int powerOn() throws Exception {
+        mReader.powerOn();
         return 0;
     }
 

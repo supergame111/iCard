@@ -15,7 +15,7 @@ public class MinipayDevice {
     public UsbManager usbManager;
     //public UsbDevice usbDevice;
     //public static boolean isOpen = false;
-    private MobileReader reader = null;
+    private static MobileReader reader = null;
     //private static MinipayDevice device = null;
     Handler mHandler;
 

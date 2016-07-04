@@ -7,6 +7,11 @@
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
     <uses-permission android:name="android.permission.NFC" />
 
+    <!-- app can run on NFC -->
+    <uses-feature
+        android:name="android.hardware.nfc"
+        android:required="true" />
+
     <!-- app only run on ble_device -->
     <uses-feature
         android:name="android.hardware.bluetooth_le"
@@ -38,6 +43,7 @@
         <activity
             android:name=".ui.activities.DeviceActivity"
             android:theme="@style/Theme.AppCompat.Light.Dialog" />
+        <activity android:name=".ui.activities.NfcActivity"></activity>
     </application>
 
 </manifest>

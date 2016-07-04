@@ -13,11 +13,12 @@ import android.hardware.usb.UsbDevice;
 import android.hardware.usb.UsbManager;
 import android.net.Uri;
 import android.os.AsyncTask;
+import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
-import android.os.Bundle;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentActivity;
+import android.support.v4.app.FragmentManager;
 import android.support.v4.app.FragmentTransaction;
 import android.util.Log;
 import android.widget.Toast;
@@ -25,6 +26,7 @@ import android.widget.Toast;
 import com.feitian.readerdk.Tool.DK;
 import com.ftreader.bluetooth.BlueToothReceiver;
 import com.ftsafe.iccd.ecard.ui.activities.DeviceActivity;
+import com.ftsafe.iccd.ecard.ui.activities.NfcActivity;
 import com.ftsafe.iccd.ecard.ui.activities.TransactionLogActivity;
 import com.ftsafe.iccd.ecard.ui.fragments.FirstFragment;
 import com.ftsafe.iccd.ecard.ui.fragments.SecondFragment;
@@ -44,9 +46,9 @@ public class MainActivity extends FragmentActivity implements OnMenuTabClickList
         , FirstFragment.OnFirstFragmentInteractionListener
         , SecondFragment.OnSecondFragmentInteractionListener {
 
-
     private static final int USB_VENDOR_ID = 2414;
 
+    private FragmentManager mFragmentManager;
     private BottomBar mBottomBar;
     private BluetoothAdapter mBluetoothAdapter;
     private BlueToothReceiver mBleReceiver;
@@ -101,7 +103,7 @@ public class MainActivity extends FragmentActivity implements OnMenuTabClickList
             mSecondFragment = SecondFragment.newInstance(null, null);
 
             // Show FirstFragment
-            getSupportFragmentManager()
+            mFragmentManager
                     .beginTransaction()
                     .add(R.id.fragment_container, mFirstFragment)
                     .commit();
@@ -124,6 +126,7 @@ public class MainActivity extends FragmentActivity implements OnMenuTabClickList
 
         // 注销广播
         unregisterReceiver(mBleReceiver);
+        unregisterReceiver(mUsbReceiver);
     }
 
     @Override
@@ -144,7 +147,7 @@ public class MainActivity extends FragmentActivity implements OnMenuTabClickList
         if (from != null && to != null) {
             if (mCurrentFragment != to) {
                 mCurrentFragment = to;
-                FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
+                FragmentTransaction transaction = mFragmentManager.beginTransaction();
                 if (to.isAdded()) { //  added
                     Log.d(Config.APP_ID, "switch to");
                     transaction.hide(from).show(to).commit();
@@ -162,6 +165,8 @@ public class MainActivity extends FragmentActivity implements OnMenuTabClickList
     }
 
     private void initialization() {
+        // Fragment Manager
+        mFragmentManager = getSupportFragmentManager();
         // USB Manager
         mUsbManager = (UsbManager) getSystemService(Context.USB_SERVICE);
         // 蓝牙设别列表
@@ -444,7 +449,7 @@ public class MainActivity extends FragmentActivity implements OnMenuTabClickList
                 break;
             case 2:
                 // NFC
-                //startActivity(new Intent(MainActivity.this, NfcActivity.class));
+                startActivity(new Intent(MainActivity.this, NfcActivity.class));
                 break;
             case 10:
                 startActivity(new Intent(MainActivity.this, TransactionLogActivity.class));

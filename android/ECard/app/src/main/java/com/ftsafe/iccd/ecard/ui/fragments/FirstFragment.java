@@ -50,7 +50,7 @@ public class FirstFragment extends Fragment implements AdapterView.OnItemClickLi
 
         // grid view
         mGridView = (GridView) view.findViewById(com.ftsafe.iccd.ecard.R.id.gridview);
-        mGridView.setAdapter(new ImageAdapter(getContext()));
+        mGridView.setAdapter(new ImageAdapter(getActivity()));
 
         // set grid view itemclickLisenter
         mGridView.setOnItemClickListener(this);

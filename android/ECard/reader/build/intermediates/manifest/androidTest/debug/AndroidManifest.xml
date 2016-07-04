@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.example.android_minipay_library.test" >
+    package="com.ftsafe.reader.sdk.test" >
 
     <uses-sdk
         android:minSdkVersion="18"
@@ -10,8 +10,8 @@
         android:name="android.test.InstrumentationTestRunner"
         android:functionalTest="false"
         android:handleProfiling="false"
-        android:label="Tests for com.example.android_minipay_library.test"
-        android:targetPackage="com.example.android_minipay_library.test" />
+        android:label="Tests for com.ftsafe.reader.sdk.test"
+        android:targetPackage="com.ftsafe.reader.sdk.test" />
 
     <application
         android:allowBackup="true"

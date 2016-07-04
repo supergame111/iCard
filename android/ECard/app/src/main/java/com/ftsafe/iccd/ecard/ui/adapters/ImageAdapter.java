@@ -7,6 +7,8 @@ import android.widget.BaseAdapter;
 import android.widget.GridView;
 import android.widget.ImageView;
 
+import com.ftsafe.iccd.ecard.R;
+
 /**
  * Created by qingyuan on 16/7/2.
  */
@@ -52,9 +54,9 @@ public class ImageAdapter extends BaseAdapter {
 
     // references to our images
     private Integer[] mThumbIds = {
-            com.ftsafe.iccd.ecard.R.drawable.ic_launcher,
-            com.ftsafe.iccd.ecard.R.drawable.ic_launcher,
-            com.ftsafe.iccd.ecard.R.drawable.ic_launcher,
-            com.ftsafe.iccd.ecard.R.drawable.ic_launcher
+            R.mipmap.ic_launcher,
+            R.mipmap.ic_launcher,
+            R.mipmap.ic_launcher,
+            R.mipmap.ic_launcher
     };
 }

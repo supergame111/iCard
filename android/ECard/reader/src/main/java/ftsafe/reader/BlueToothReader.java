@@ -8,7 +8,6 @@ import com.ftreader.bluetooth.BlueToothReaderDevice;
 import com.ftsafe.exception.FtBlueReadException;
 
 import ftsafe.common.Util;
-import ftsafe.common.Utils;
 
 /**
  * Created by qingyuan on 2016/6/30.

@@ -10,7 +10,6 @@ import ftsafe.reader.Answer;
 import ftsafe.reader.Reader;
 import ftsafe.common.BaseFunction;
 import ftsafe.common.BasePboc;
-import ftsafe.common.Utils;
 
 public class PBOC {
     private static final String TAG = "com.ftsafe.pboc";

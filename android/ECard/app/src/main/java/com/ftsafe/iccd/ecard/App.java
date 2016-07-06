@@ -52,8 +52,13 @@ public class App extends Application implements Thread.UncaughtExceptionHandler 
         }
     }
 
-    public static void showMessage(int fmt, CharSequence... msgs) {
-        String msg = String.format(getStringResource(fmt), msgs);
+//    public static void showMessage(int fmt, CharSequence... msgs) {
+//        String msg = String.format(getStringResource(fmt), msgs);
+//        Toast.makeText(instance, msg, Toast.LENGTH_LONG).show();
+//    }
+
+    public static void showMessage(int fmt) {
+        String msg = String.format(getStringResource(fmt));
         Toast.makeText(instance, msg, Toast.LENGTH_LONG).show();
     }
 

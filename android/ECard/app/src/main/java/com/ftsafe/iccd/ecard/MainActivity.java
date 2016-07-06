@@ -457,6 +457,12 @@ public class MainActivity extends FragmentActivity implements OnMenuTabClickList
             case 11:
                 Toast.makeText(this, "" + position, Toast.LENGTH_SHORT).show();
                 break;
+            case 12:
+                Toast.makeText(this, "" + position, Toast.LENGTH_SHORT).show();
+                break;
+            case 13:
+                Toast.makeText(this, "" + position, Toast.LENGTH_SHORT).show();
+                break;
             default:
                 break;
         }

@@ -96,6 +96,19 @@ public class BlueToothReader extends Reader {
         return null;
     }
 
+    @Override
+    public byte[] transceive(byte[] apdu) throws Exception {
+        byte[] resp = new byte[MAX_PACKET_LENGTH];
+        int[] length = new int[2];
+        int ret = mBtReader.transApdu(apdu.length, apdu, length, resp);
+        if (ret != 0)
+            return null;
+        int len = length[0];
+        byte[] btmp = new byte[len];
+        System.arraycopy(resp,0,btmp,0,len);
+        return btmp;
+    }
+
     public void registerCardStatusMonitoring(Handler mHandler) {
         try {
             mBtReader.registerCardStatusMonitoring(mHandler);

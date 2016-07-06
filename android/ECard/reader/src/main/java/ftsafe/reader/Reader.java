@@ -28,4 +28,6 @@ public abstract class Reader {
     public abstract Answer sendAPDU(String apdu) throws Exception;
 
     public abstract Answer sendAPDU(byte[] apdu) throws Exception;
+
+    public abstract byte[] transceive(byte[] apdu) throws Exception;
 }

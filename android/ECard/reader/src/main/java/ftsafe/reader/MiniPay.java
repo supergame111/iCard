@@ -126,4 +126,9 @@ public class MiniPay extends Reader {
         }
         return null;
     }
+
+    @Override
+    public byte[] transceive(byte[] apdu) throws Exception  {
+        return mReader.sendAPDU(apdu);
+    }
 }

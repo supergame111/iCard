@@ -7,8 +7,11 @@ import android.support.v4.app.Fragment;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.webkit.WebSettings;
+import android.webkit.WebView;
 
 import com.ftsafe.iccd.ecard.R;
+import com.ftsafe.iccd.ecard.ui.AppWebViewClient;
 
 /**
  * A simple {@link Fragment} subclass.
@@ -29,6 +32,8 @@ public class SecondFragment extends Fragment {
     private String mParam2;
 
     private OnSecondFragmentInteractionListener mListener;
+
+    private WebView mWebView;
 
     public SecondFragment() {
         // Required empty public constructor
@@ -65,7 +70,15 @@ public class SecondFragment extends Fragment {
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
         // Inflate the layout for this fragment
-        return inflater.inflate(R.layout.fragment_second, container, false);
+        View view  = inflater.inflate(R.layout.fragment_second, container, false);
+        mWebView = (WebView) view.findViewById(R.id.webview);
+        mWebView.loadUrl("http://beta.html5test.com/");
+        // Stop local links and redirects from opening in browser instead of WebView
+        mWebView.setWebViewClient(new AppWebViewClient());
+        // 支持JS
+        WebSettings webSettings = mWebView.getSettings();
+        webSettings.setJavaScriptEnabled(true);
+        return view;
     }
 
     // TODO: Rename method, update argument and hook method into UI event

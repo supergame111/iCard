@@ -2,8 +2,8 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context="com.ftsafe.iccd.ecard.ui.fragments.FirstFragment"
-    android:orientation="vertical">
+    android:orientation="vertical"
+    tools:context="com.ftsafe.iccd.ecard.ui.fragments.FirstFragment">
 
     <android.support.design.widget.AppBarLayout
         android:layout_width="match_parent"
@@ -20,37 +20,45 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="@string/otg" />
+                android:background="@drawable/ic_menu_otg" />
 
             <Button
                 android:id="@+id/ble_btn"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="@string/ble" />
+                android:background="@drawable/ic_menu_ble" />
+
             <Button
                 android:id="@+id/nfc_btn"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="@string/nfc" />
+                android:background="@drawable/ic_menu_nfc" />
 
         </android.support.v7.widget.LinearLayoutCompat>
 
     </android.support.design.widget.AppBarLayout>
 
 
-    <GridView
-        android:id="@+id/gridview"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:layout_marginTop="10dp"
-        android:numColumns="2"
-        android:verticalSpacing="10dp"
-        android:horizontalSpacing="10dp"
-        android:gravity="center">
+    <ScrollView
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:fillViewport="true"
+        android:scrollbars="none">
 
-    </GridView>
+        <GridView
+            android:id="@+id/gridview"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_marginTop="10dp"
+            android:gravity="center"
+            android:horizontalSpacing="0dp"
+            android:numColumns="4"
+            android:verticalSpacing="0dp">
+
+        </GridView>
+    </ScrollView>
 
 
 </LinearLayout>

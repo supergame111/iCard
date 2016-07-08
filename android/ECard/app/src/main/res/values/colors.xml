@@ -1,8 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="colorPrimary">#3F51B5</color>
-    <color name="colorPrimaryDark">#303F9F</color>
-    <color name="colorAccent">#FF4081</color>
+    <!--<color name="colorPrimary">#3F51B5</color>-->
+    <!--<color name="colorPrimaryDark">#303F9F</color>-->
+    <!--<color name="colorAccent">#FF4081</color>-->
+    <color name="colorPrimary">#FF505050</color>
+    <color name="colorPrimaryDark">#FF000000</color>
+    <color name="colorAccent">#015da6</color>
 
     <color name="tag_bg">#FF000000</color>
     <color name="tag_tip">#FF505050</color>
@@ -13,4 +16,8 @@
     <color name="tag_h3">#FF505050</color>
     <color name="tag_text">#FF111111</color>
     <color name="tag_lab">#FF3F3F3F</color>
+
+    <color name="griditems_bg">#ffe8ecef</color>
+    <color name="commo_text_color">#ff333333</color>
+    <color name="line">#ffd3dde6</color>
 </resources>

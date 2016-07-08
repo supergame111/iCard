@@ -22,10 +22,10 @@ import android.content.Intent;
 import com.ftsafe.iccd.ecard.App;
 import com.ftsafe.iccd.ecard.R;
 import com.ftsafe.iccd.ecard.SPEC.EVENT;
-import com.ftsafe.iccd.ecard.nfc.bean.Card;
-import com.ftsafe.iccd.ecard.nfc.reader.ReaderListener;
+import com.ftsafe.iccd.ecard.bean.Card;
+import com.ftsafe.iccd.ecard.nfc.reader.NfcReaderListener;
 
-public final class NfcPage implements ReaderListener {
+public final class NfcPage implements NfcReaderListener {
 	private static final String TAG = "READCARD_ACTION";
 	private static final String RET = "READCARD_RESULT";
 	private static final String STA = "READCARD_STATUS";

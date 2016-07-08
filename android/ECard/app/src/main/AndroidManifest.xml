@@ -43,7 +43,10 @@
         <activity
             android:name=".ui.activities.DeviceActivity"
             android:theme="@style/Theme.AppCompat.Light.Dialog" />
-        <activity android:name=".ui.activities.NfcActivity"></activity>
+        <activity android:name=".ui.activities.NfcActivity" />
+        <activity android:name=".ui.activities.LoadActivity" />
+        <activity android:name=".ui.activities.ConsumptionActivity" />
+        <activity android:name=".ui.activities.CardInfoActivity"></activity>
     </application>
 
 </manifest>

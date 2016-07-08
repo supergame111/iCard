@@ -5,6 +5,7 @@ import android.graphics.Typeface;
 import android.graphics.drawable.Drawable;
 import android.os.Handler;
 import android.util.DisplayMetrics;
+import android.util.Log;
 import android.widget.Toast;
 
 import java.io.InputStream;
@@ -27,6 +28,7 @@ public class App extends Application implements Thread.UncaughtExceptionHandler 
 
     @Override
     public void uncaughtException(Thread thread, Throwable ex) {
+        Log.e(Config.APP_ID,ex.getMessage(),ex);
         System.exit(0);
     }
 

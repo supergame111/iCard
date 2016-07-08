@@ -27,8 +27,8 @@ import android.nfc.Tag;
 import android.nfc.tech.IsoDep;
 import android.nfc.tech.NfcF;
 
-import com.ftsafe.iccd.ecard.nfc.reader.ReaderListener;
-import com.ftsafe.iccd.ecard.nfc.reader.ReaderManager;
+import com.ftsafe.iccd.ecard.nfc.reader.NfcReaderListener;
+import com.ftsafe.iccd.ecard.nfc.reader.NfcReaderManager;
 
 import static android.nfc.NfcAdapter.EXTRA_TAG;
 import static android.os.Build.VERSION_CODES.GINGERBREAD_MR1;
@@ -93,10 +93,10 @@ public final class NfcManager {
 		return false;
 	}
 
-	public boolean readCard(Intent intent, ReaderListener listener) {
+	public boolean readCard(Intent intent, NfcReaderListener listener) {
 		final Tag tag = (Tag) intent.getParcelableExtra(EXTRA_TAG);
 		if (tag != null) {
-			ReaderManager.readCard(tag, listener);
+			NfcReaderManager.readCard(tag, listener);
 			return true;
 		}
 		return false;

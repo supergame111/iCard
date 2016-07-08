@@ -25,9 +25,10 @@ import android.widget.Toast;
 
 import com.feitian.readerdk.Tool.DK;
 import com.ftreader.bluetooth.BlueToothReceiver;
+import com.ftsafe.iccd.ecard.ui.activities.CardInfoActivity;
 import com.ftsafe.iccd.ecard.ui.activities.DeviceActivity;
+import com.ftsafe.iccd.ecard.ui.activities.LoadActivity;
 import com.ftsafe.iccd.ecard.ui.activities.NfcActivity;
-import com.ftsafe.iccd.ecard.ui.activities.TransactionLogActivity;
 import com.ftsafe.iccd.ecard.ui.fragments.FirstFragment;
 import com.ftsafe.iccd.ecard.ui.fragments.SecondFragment;
 import com.roughike.bottombar.BottomBar;
@@ -60,7 +61,7 @@ public class MainActivity extends FragmentActivity implements OnMenuTabClickList
 
     private PendingIntent mPermissionIntet;
 
-    private ProgressDialog mProgressDialog;
+    private  ProgressDialog mProgressDialog;
     private Fragment mCurrentFragment;
     private FirstFragment mFirstFragment;
     private SecondFragment mSecondFragment;
@@ -452,10 +453,11 @@ public class MainActivity extends FragmentActivity implements OnMenuTabClickList
                 startActivity(new Intent(MainActivity.this, NfcActivity.class));
                 break;
             case 10:
-                startActivity(new Intent(MainActivity.this, TransactionLogActivity.class));
+                // 卡片信息
+                startActivity(new Intent(MainActivity.this, CardInfoActivity.class));
                 break;
             case 11:
-                Toast.makeText(this, "" + position, Toast.LENGTH_SHORT).show();
+                startActivity(new Intent(MainActivity.this, LoadActivity.class));
                 break;
             case 12:
                 Toast.makeText(this, "" + position, Toast.LENGTH_SHORT).show();

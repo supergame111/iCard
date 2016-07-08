@@ -12,7 +12,7 @@ import android.widget.Button;
 import android.widget.GridView;
 
 import com.ftsafe.iccd.ecard.R;
-import com.ftsafe.iccd.ecard.ui.adapters.ImageAdapter;
+import com.ftsafe.iccd.ecard.ui.adapters.GridItemAdapter;
 
 /**
  * A simple {@link Fragment} subclass.
@@ -50,7 +50,7 @@ public class FirstFragment extends Fragment implements AdapterView.OnItemClickLi
 
         // grid view
         mGridView = (GridView) view.findViewById(com.ftsafe.iccd.ecard.R.id.gridview);
-        mGridView.setAdapter(new ImageAdapter(getActivity()));
+        mGridView.setAdapter(new GridItemAdapter(getActivity()));
 
         // set grid view itemclickLisenter
         mGridView.setOnItemClickListener(this);

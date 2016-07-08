@@ -426,7 +426,7 @@ public class FeliCa {
 		}
 	}
 
-	public final static class Tag {
+	public final static class FeliCaNfcTag {
 		private final NfcF nfcTag;
 
 		private boolean isFeliCaLite;
@@ -434,7 +434,7 @@ public class FeliCa {
 		private IDm idm;
 		private PMm pmm;
 
-		public Tag(NfcF tag) {
+		public FeliCaNfcTag(NfcF tag) {
 			nfcTag = tag;
 			sys = tag.getSystemCode();
 			idm = new IDm(tag.getTag().getId());

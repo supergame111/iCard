@@ -96,6 +96,16 @@ public class BlueToothReader extends Reader {
         return null;
     }
 
+    /**
+     * get UID used for anti-collision
+     * @return
+     * @throws Exception
+     */
+    @Override
+    public byte[] getId() throws Exception {
+        return new byte[0];
+    }
+
     @Override
     public byte[] transceive(byte[] apdu) throws Exception {
         byte[] resp = new byte[MAX_PACKET_LENGTH];

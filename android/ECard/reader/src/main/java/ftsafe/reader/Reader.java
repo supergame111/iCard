@@ -29,5 +29,12 @@ public abstract class Reader {
 
     public abstract Answer sendAPDU(byte[] apdu) throws Exception;
 
+    /**
+     * get UID used for anti-collision
+     * @return
+     * @throws Exception
+     */
+    public abstract byte[] getId() throws Exception;
+
     public abstract byte[] transceive(byte[] apdu) throws Exception;
 }

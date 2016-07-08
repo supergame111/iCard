@@ -492,10 +492,13 @@ public class Iso7816 {
         }
     }
 
-    public final static class PBOC {
+    /**
+     * GP 标准Tag，封装了符合GP标准的指令
+     */
+    public final static class StdTag {
         private final Reader reader;
 
-        public PBOC(Reader reader) {
+        public StdTag(Reader reader) {
             this.reader = reader;
         }
 

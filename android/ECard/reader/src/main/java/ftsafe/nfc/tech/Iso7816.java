@@ -505,11 +505,11 @@ public class Iso7816 {
 		}
 	}
 
-	public final static class StdTag {
+	public final static class StdNfcTag {
 		private final IsoDep nfcTag;
 		private ID id;
 
-		public StdTag(IsoDep tag) {
+		public StdNfcTag(IsoDep tag) {
 			nfcTag = tag;
 			id = new ID(tag.getTag().getId());
 		}

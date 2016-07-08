@@ -73,7 +73,7 @@
 	<div>
 	<t_head1><app /></t_head1> <version />
 	<br /><t_splitter><br />
-	<br />NFCard使用手机NFC读取非接触式IC卡中的信息。<br />
+	<br />NFC使用手机NFC读取非接触式IC卡中的信息。<br />
 	<!--<br />支持ISO7816-4、Felica智能卡，用来读取电子钱包（主要是公交卡）、电子现金（如闪付卡）账户中没有设置读取限制的有效期、脱机余额、交易记录。<br />-->
 	<!--<br />已经确认可以读出的卡片有：深圳通（新版）、上海公交卡、香港八达通、北京市政一卡通（新版）、长安通、武汉城市一卡通、银联闪付卡、交通联合卡（含电子现金）、城市一卡通互联互通卡。<br />-->
 	<!--<br />本程序免费、开源。允许自由传播和修改，具体的规则请遵照自由软件基金会的通用公共授权第三版（GNU GPLv3），参见 <a href="http://www.gnu.org/licenses/gpl.txt">www.gnu.org/licenses/gpl.txt</a>。<br />-->
@@ -89,4 +89,7 @@
     <t_tip>没有卡片信息，请将卡片靠近读卡器，<t_action_try>并重试</t_action_try>。</t_tip>
     ]]>
     </string>
+    <string name="warning_no_reader">没有找到读卡器</string>
+    <string name="info_home">首页</string>
+    <string name="info_home_me">我的</string>
 </resources>

@@ -3,10 +3,10 @@
 
     <item
         android:id="@+id/bottomBarItemOne"
-        android:icon="@drawable/ic_favorite_white_24dp"
-        android:title="Recents" />
+        android:icon="@drawable/ic_home"
+        android:title="@string/info_home" />
     <item
         android:id="@+id/bottomBarItemTwo"
-        android:icon="@drawable/ic_update_white_24dp"
-        android:title="Recents" />
+        android:icon="@drawable/ic_me"
+        android:title="@string/info_home_me" />
 </menu>

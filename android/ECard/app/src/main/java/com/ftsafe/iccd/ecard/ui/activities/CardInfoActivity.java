@@ -1,10 +1,9 @@
 package com.ftsafe.iccd.ecard.ui.activities;
 
+import android.app.Activity;
 import android.app.ProgressDialog;
-import android.content.Intent;
 import android.graphics.Typeface;
 import android.os.Bundle;
-import android.support.v7.app.AppCompatActivity;
 import android.text.method.LinkMovementMethod;
 import android.util.Log;
 import android.view.Gravity;
@@ -25,13 +24,13 @@ import com.ftsafe.iccd.ecard.reader.pboc.StandardECash;
 import com.ftsafe.iccd.ecard.ui.pages.SpanFormatter;
 import com.ftsafe.iccd.ecard.ui.pages.Toolbar;
 
-public class CardInfoActivity extends AppCompatActivity implements ReaderListener, SpanFormatter.ActionHandler {
+public class CardInfoActivity extends Activity implements ReaderListener, SpanFormatter.ActionHandler {
 
     private ViewSwitcher board;
     private Toolbar toolbar;
     private ProgressDialog mProgressDialog;
 
-    private static final String TAG = "READ_CARDINFO_ACTION";
+//    private static final String TAG = "READ_CARDINFO_ACTION";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -43,13 +42,13 @@ public class CardInfoActivity extends AppCompatActivity implements ReaderListene
         readCard();
     }
 
-    @Override
-    public void setIntent(Intent intent) {
-        if (intent.getAction().equals(TAG))
-            readCard();
-        else
-            super.setIntent(intent);
-    }
+//    @Override
+//    public void setIntent(Intent intent) {
+//        if (intent.getAction().equals(TAG))
+//            readCard();
+//        else
+//            super.setIntent(intent);
+//    }
 
     private void readCard() {
         if (MainActivity.BtReader != null)
@@ -165,7 +164,6 @@ public class CardInfoActivity extends AppCompatActivity implements ReaderListene
 
     @Override
     public void handleAction(CharSequence name) {
-        Log.e(Config.APP_ID,"name "+ name);
         readCard();
     }
 }

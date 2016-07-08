@@ -61,7 +61,7 @@ public class MainActivity extends FragmentActivity implements OnMenuTabClickList
 
     private PendingIntent mPermissionIntet;
 
-    private  ProgressDialog mProgressDialog;
+    private ProgressDialog mProgressDialog;
     private Fragment mCurrentFragment;
     private FirstFragment mFirstFragment;
     private SecondFragment mSecondFragment;
@@ -454,10 +454,16 @@ public class MainActivity extends FragmentActivity implements OnMenuTabClickList
                 break;
             case 10:
                 // 卡片信息
-                startActivity(new Intent(MainActivity.this, CardInfoActivity.class));
+                if (MiniPay != null || BtReader != null)
+                    startActivity(new Intent(MainActivity.this, CardInfoActivity.class));
+                else
+                    Toast.makeText(this, R.string.warning_no_reader, Toast.LENGTH_SHORT).show();
                 break;
             case 11:
-                startActivity(new Intent(MainActivity.this, LoadActivity.class));
+                if (MiniPay != null || BtReader != null)
+                    startActivity(new Intent(MainActivity.this, LoadActivity.class));
+                else
+                    Toast.makeText(this, R.string.warning_no_reader, Toast.LENGTH_SHORT).show();
                 break;
             case 12:
                 Toast.makeText(this, "" + position, Toast.LENGTH_SHORT).show();

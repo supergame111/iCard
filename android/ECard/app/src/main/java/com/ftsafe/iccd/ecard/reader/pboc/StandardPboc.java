@@ -108,12 +108,12 @@ public abstract class StandardPboc {
         return stdLay.selectByID(DFI_MF).isOkey() || stdLay.selectByName(DFN_PSE).isOkey();
     }
 
-    protected HINT readCard(Iso7816.StdTag stdLay, Card card) throws IOException {
+    protected HINT readCard(Iso7816.StdTag tag, Card card) throws IOException {
 
 		/*--------------------------------------------------------------*/
         // select Main Application
         /*--------------------------------------------------------------*/
-        if (selectMainApplication(stdLay) == false)
+        if (selectMainApplication(tag) == false)
             return HINT.GONEXT;
 
         Iso7816.Response INFO, BALANCE;
@@ -121,17 +121,17 @@ public abstract class StandardPboc {
 		/*--------------------------------------------------------------*/
         // read card info file, binary (21)
 		/*--------------------------------------------------------------*/
-        INFO = stdLay.readBinary(SFI_EXTRA);
+        INFO = tag.readBinary(SFI_EXTRA);
 
 		/*--------------------------------------------------------------*/
         // read balance
 		/*--------------------------------------------------------------*/
-        BALANCE = stdLay.getBalance(0, true);
+        BALANCE = tag.getBalance(0, true);
 
 		/*--------------------------------------------------------------*/
         // read log file, record (24)
 		/*--------------------------------------------------------------*/
-        ArrayList<byte[]> LOG = readLog24(stdLay, SFI_LOG);
+        ArrayList<byte[]> LOG = readLog24(tag, SFI_LOG);
 
 		/*--------------------------------------------------------------*/
         // build result
@@ -139,12 +139,12 @@ public abstract class StandardPboc {
         final Application app = createApplication();
 
         parseBalance(app, BALANCE);
-//
-//        parseInfo21(app, INFO, 4, true);
-//
-//        parseLog24(app, LOG);
-//
-//        configApplication(app);
+
+        parseInfo21(app, INFO, 4, true);
+
+        parseLog24(app, LOG);
+
+        configApplication(app);
 
         card.addApplication(app);
 
@@ -169,6 +169,27 @@ public abstract class StandardPboc {
         }
 
         return ret;
+    }
+
+    protected void parseInfo21(Application app, Iso7816.Response data, int dec, boolean bigEndian) {
+        if (!data.isOkey() || data.size() < 30) {
+            return;
+        }
+
+        final byte[] d = data.getBytes();
+        if (dec < 1 || dec > 10) {
+            app.setProperty(SPEC.PROP.SERIAL, Util.toHexString(d, 10, 10));
+        } else {
+            final int sn = bigEndian ? Util.toIntR(d, 19, dec) : Util.toInt(d, 20 - dec, dec);
+
+            app.setProperty(SPEC.PROP.SERIAL, String.format("%d", 0xFFFFFFFFL & sn));
+        }
+
+        if (d[9] != 0)
+            app.setProperty(SPEC.PROP.VERSION, String.valueOf(d[9]));
+
+        app.setProperty(SPEC.PROP.DATE, String.format("%02X%02X.%02X.%02X - %02X%02X.%02X.%02X",
+                d[20], d[21], d[22], d[23], d[24], d[25], d[26], d[27]));
     }
 
     protected boolean addLog24(final ftsafe.reader.tech.Iso7816.Response r, ArrayList<byte[]> l) {

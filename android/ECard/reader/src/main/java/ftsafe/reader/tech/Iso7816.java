@@ -12,7 +12,7 @@ import ftsafe.reader.Reader;
  * Created by qingyuan on 2016/7/5.
  */
 public class Iso7816 {
-    public static final byte[] EMPTY = { 0 };
+    public static final byte[] EMPTY = {0};
 
     protected byte[] data;
 
@@ -100,7 +100,7 @@ public class Iso7816 {
 
     public static class Response extends Iso7816 {
         public static final byte[] EMPTY = {};
-        public static final byte[] ERROR = { 0x6F, 0x00 }; // SW_UNKNOWN
+        public static final byte[] ERROR = {0x6F, 0x00}; // SW_UNKNOWN
 
         public Response(byte[] bytes) {
             super((bytes == null || bytes.length < 2) ? Response.ERROR : bytes);
@@ -186,12 +186,12 @@ public class Iso7816 {
         }
 
         public BerT(byte tag) {
-            this(new byte[] { tag });
+            this(new byte[]{tag});
         }
 
         public BerT(short tag) {
-            this(new byte[] { (byte) (0x000000FF & (tag >> 8)),
-                    (byte) (0x000000FF & tag) });
+            this(new byte[]{(byte) (0x000000FF & (tag >> 8)),
+                    (byte) (0x000000FF & tag)});
         }
 
         public BerT(byte[] bytes) {
@@ -503,7 +503,7 @@ public class Iso7816 {
         }
 
         public Response getBalance(int p1, boolean isEP) throws IOException {
-            final byte[] cmd = { (byte) 0x80, // CLA Class
+            final byte[] cmd = {(byte) 0x80, // CLA Class
                     (byte) 0x5C, // INS Instruction
                     (byte) p1, // P1 Parameter 1
                     (byte) (isEP ? 2 : 1), // P2 Parameter 2
@@ -514,7 +514,7 @@ public class Iso7816 {
         }
 
         public Response readRecord(int sfi, int index) throws IOException {
-            final byte[] cmd = { (byte) 0x00, // CLA Class
+            final byte[] cmd = {(byte) 0x00, // CLA Class
                     (byte) 0xB2, // INS Instruction
                     (byte) index, // P1 Parameter 1
                     (byte) ((sfi << 3) | 0x04), // P2 Parameter 2
@@ -525,7 +525,7 @@ public class Iso7816 {
         }
 
         public Response readRecord(int sfi) throws IOException {
-            final byte[] cmd = { (byte) 0x00, // CLA Class
+            final byte[] cmd = {(byte) 0x00, // CLA Class
                     (byte) 0xB2, // INS Instruction
                     (byte) 0x01, // P1 Parameter 1
                     (byte) ((sfi << 3) | 0x05), // P2 Parameter 2
@@ -536,7 +536,7 @@ public class Iso7816 {
         }
 
         public Response readBinary(int sfi) throws IOException {
-            final byte[] cmd = { (byte) 0x00, // CLA Class
+            final byte[] cmd = {(byte) 0x00, // CLA Class
                     (byte) 0xB0, // INS Instruction
                     (byte) (0x00000080 | (sfi & 0x1F)), // P1 Parameter 1
                     (byte) 0x00, // P2 Parameter 2
@@ -547,7 +547,7 @@ public class Iso7816 {
         }
 
         public Response readData(int sfi) throws IOException {
-            final byte[] cmd = { (byte) 0x80, // CLA Class
+            final byte[] cmd = {(byte) 0x80, // CLA Class
                     (byte) 0xCA, // INS Instruction
                     (byte) 0x00, // P1 Parameter 1
                     (byte) (sfi & 0x1F), // P2 Parameter 2
@@ -569,7 +569,7 @@ public class Iso7816 {
         }
 
         public Response readData(short tag) throws IOException {
-            final byte[] cmd = { (byte) 0x80, // CLA Class
+            final byte[] cmd = {(byte) 0x80, // CLA Class
                     (byte) 0xCA, // INS Instruction
                     (byte) ((tag >> 8) & 0xFF), // P1 Parameter 1
                     (byte) (tag & 0x1F), // P2 Parameter 2
@@ -612,6 +612,43 @@ public class Iso7816 {
                     .put((byte) 0x00) // P2 Parameter 2
                     .put((byte) pdol.length) // Lc
                     .put(pdol).put((byte) 0x00); // Le
+
+            return new Response(transceive(buff.array()));
+        }
+
+        public Response internalAuthenticate(byte... ddol) throws IOException {
+            ByteBuffer buff = ByteBuffer.allocate(ddol.length + 6);
+            buff.put((byte) 0x00) // CLA Class
+                    .put((byte) 0x88) // INS Instruction
+                    .put((byte) 0x00) // P1 Parameter 1
+                    .put((byte) 0x00) // P2 Parameter 2
+                    .put((byte) ddol.length) // Lc
+                    .put(ddol).put((byte) 0x00); // Le
+
+            return new Response(transceive(buff.array()));
+        }
+
+        public Response externalAuthenticate(byte... arpc) throws IOException {
+            ByteBuffer buff = ByteBuffer.allocate(arpc.length + 6);
+            buff.put((byte) 0x00) // CLA Class
+                    .put((byte) 0x82) // INS Instruction
+                    .put((byte) 0x00) // P1 Parameter 1
+                    .put((byte) 0x00) // P2 Parameter 2in
+
+                    .put((byte) arpc.length) // Lc
+                    .put(arpc).put((byte) 0x00); // Le
+
+            return new Response(transceive(buff.array()));
+        }
+
+        public Response generateAC(int p1, byte... cdol) throws IOException {
+            ByteBuffer buff = ByteBuffer.allocate(cdol.length + 6);
+            buff.put((byte) 0x80) // CLA Class
+                    .put((byte) 0xAE) // INS Instruction
+                    .put((byte) p1) // P1 Parameter 1
+                    .put((byte) 0x00) // P2 Parameter 2
+                    .put((byte) cdol.length) // Lc
+                    .put(cdol).put((byte) 0x00); // Le
 
             return new Response(transceive(buff.array()));
         }
@@ -681,8 +718,8 @@ public class Iso7816 {
         private static final byte CH_STA_OK = (byte) 0x90;
         private static final byte CH_STA_MORE = (byte) 0x61;
         private static final byte CH_STA_LE = (byte) 0x6C;
-        private static final byte CMD_GETRESPONSE[] = { 0, (byte) 0xC0, 0, 0,
-                0, };
+        private static final byte CMD_GETRESPONSE[] = {0, (byte) 0xC0, 0, 0,
+                0,};
     }
 
     public static final short SW_NO_ERROR = (short) 0x9000;

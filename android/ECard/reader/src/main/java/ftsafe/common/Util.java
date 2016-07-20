@@ -15,6 +15,10 @@ Additional permission under GNU GPL version 3 section 7 */
 
 package ftsafe.common;
 
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Random;
+
 public final class Util {
 	private final static char[] HEX = { '0', '1', '2', '3', '4', '5', '6', '7',
 			'8', '9', 'A', 'B', 'C', 'D', 'E', 'F' };
@@ -159,5 +163,52 @@ public final class Util {
 
 	public static int BCDtoInt(byte... b) {
 		return BCDtoInt(b, 0, b.length);
+	}
+
+	public static byte[] getRandom(int len) {
+		String str = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+		Random random = new Random();
+		StringBuffer buf = new StringBuffer();
+		int length = len*2;
+		for (int i = 0; i < length; i++) {
+			int num = random.nextInt(62);
+			buf.append(str.charAt(num));
+		}
+		return toBytes(buf.toString());
+	}
+
+	/**
+	 * @函数名称：ftGetSysTime
+	 * @函数功能：获取当前系统日期
+	 * @param format 0:yyyyMMdd
+	 * 				 1:yyyy-MM-dd
+	 * 				 2:yyyy/MM/dd
+	3:yyMMdd
+	 * @return 系统日期
+	 */
+	public static byte[] getSysDate(int format)
+	{
+		String time = null;
+		Date date = new Date();
+		SimpleDateFormat dateFormat = null;
+		switch (format) {
+			case 0:
+				dateFormat = new SimpleDateFormat("yyyyMMdd");
+				break;
+			case 1:
+				dateFormat = new SimpleDateFormat("yyyy-MM-dd");
+				break;
+			case 2:
+				dateFormat = new SimpleDateFormat("yyyy/MM/dd");
+				break;
+			case 3:
+				dateFormat = new SimpleDateFormat("yyMMdd");
+				break;
+			default:
+				dateFormat = new SimpleDateFormat("yyyyMMdd");
+				break;
+		}
+		time = dateFormat.format(date);
+		return toBytes(time);
 	}
 }

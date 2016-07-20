@@ -3,7 +3,7 @@ package ftsafe.common;
 /**
  * Created by axis on 2015/11/2.
  */
-class Utils {
+//class Utils {
     /*
     public static String bytes2HexStr(byte[] b, int length) {
         String stmp = "";
@@ -89,4 +89,4 @@ class Utils {
         return true;
     }
     */
-}
+//}

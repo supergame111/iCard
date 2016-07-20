@@ -701,6 +701,7 @@ public class BaseFunction {
 		}
 		return buf.toString();
 	}
+
 	/**
 	 * 清除填充数据
 	 * @param str 具有填充数据的数据

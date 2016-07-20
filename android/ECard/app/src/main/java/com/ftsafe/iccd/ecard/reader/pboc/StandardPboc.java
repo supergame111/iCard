@@ -1,5 +1,9 @@
 package com.ftsafe.iccd.ecard.reader.pboc;
 
+import android.database.sqlite.SQLiteCantOpenDatabaseException;
+import android.util.Log;
+
+import com.ftsafe.iccd.ecard.Config;
 import com.ftsafe.iccd.ecard.SPEC;
 import com.ftsafe.iccd.ecard.bean.Application;
 import com.ftsafe.iccd.ecard.bean.Card;
@@ -120,22 +124,22 @@ public abstract class StandardPboc {
 
 		/*--------------------------------------------------------------*/
         // read card info file, binary (21)
-		/*--------------------------------------------------------------*/
+        /*--------------------------------------------------------------*/
         INFO = tag.readBinary(SFI_EXTRA);
 
 		/*--------------------------------------------------------------*/
         // read balance
-		/*--------------------------------------------------------------*/
+        /*--------------------------------------------------------------*/
         BALANCE = tag.getBalance(0, true);
 
 		/*--------------------------------------------------------------*/
         // read log file, record (24)
-		/*--------------------------------------------------------------*/
+        /*--------------------------------------------------------------*/
         ArrayList<byte[]> LOG = readLog24(tag, SFI_LOG);
 
 		/*--------------------------------------------------------------*/
         // build result
-		/*--------------------------------------------------------------*/
+        /*--------------------------------------------------------------*/
         final Application app = createApplication();
 
         parseBalance(app, BALANCE);
@@ -231,6 +235,7 @@ public abstract class StandardPboc {
 
     protected final static byte TRANS_CSU = 6;
     protected final static byte TRANS_CSU_CPX = 9;
+
     protected void parseLog24(Application app, ArrayList<byte[]>... logs) {
         final ArrayList<String> ret = new ArrayList<String>(MAX_LOG);
 
@@ -271,8 +276,134 @@ public abstract class StandardPboc {
     protected Application createApplication() {
         return new Application();
     }
+
     protected void configApplication(Application app) {
         app.setProperty(SPEC.PROP.ID, getApplicationId());
         app.setProperty(SPEC.PROP.CURRENCY, getCurrency());
     }
+
+    /**
+     * 读应用数据
+     * READ RECORD命令/响应，循环读取应用数据存入 {@code berHouse}
+     * @param tag 标准PBOC
+     * @param berHouse TLV数据包
+     */
+    protected void readApplicationRecord(Iso7816.StdTag tag, Iso7816.BerHouse berHouse) {
+        Log.d(Config.APP_ID, "读取应用数据");
+        final byte[] aip, afl;
+        try {
+            final Iso7816.BerTLV topTlv80 = berHouse.findFirst((byte) 0x80);
+            if (topTlv80 != null) {
+                /*------------------------*/
+                // 计算SFI
+                /*------------------------*/
+                int length = topTlv80.length();
+                Log.e(Config.APP_ID, "80模板长度=" + length);
+                byte[] tmp = topTlv80.v.getBytes();
+                aip = Arrays.copyOfRange(tmp, 0, 2);
+                afl = Arrays.copyOfRange(tmp, 2, length);
+                Log.e(Config.APP_ID, "aip=" + Util.toHexString(aip) + ",afl=" + Util.toHexString(afl));
+                /*------------------------*/
+                // RREAD RECORD
+                /*------------------------*/
+                int group = afl.length / 4;
+                int sfi, nums, nume, flag;
+                for (int i = 0; i < group; i++) {
+                    tmp = Arrays.copyOfRange(afl, i * 4, (i + 1) * 4);
+                    sfi = Util.BCDtoInt((byte) (tmp[0] >> 3));
+                    nums = Util.BCDtoInt(tmp[1]);
+                    nume = Util.BCDtoInt(tmp[2]);
+                    flag = Util.BCDtoInt(tmp[3]);
+                    Log.e(Config.APP_ID, "sfi=" + sfi + ",nums=" + nums + ",nume=" + nume + ",flag=" + flag);
+                    for (int j = nums; j <= nume; j++) {
+                        Log.e(Config.APP_ID, "读记录:SFI=" + sfi + ",NUM=" + j);
+
+                        Iso7816.Response r = tag.readRecord(sfi, j);
+                        if (r.isOkey())
+                            Iso7816.BerTLV.extractPrimitives(berHouse, r);
+                        else
+                            throw new Exception("读SFI=" + sfi + ",NUM=" + j + "记录异常响应码:" + r.getSw12String());
+
+                    }
+                }
+
+            } else
+                throw new Exception("解析GPO响应:没有80模板" + topTlv80);
+
+        } catch (Exception e) {
+            Log.e(Config.APP_ID, e.getMessage());
+        }
+    }
+
+    /**
+     * 脱机数据认证
+     * INTERNAL AUTHENTICATE命令/响应
+     */
+    protected void offLineDataAuthenticate(boolean isDDA) {
+        Log.d(Config.APP_ID, "脱机数据认证");
+    }
+
+    /**
+     * 处理限制
+     *
+     */
+    protected void dealLimit(Iso7816.BerHouse tlvs) {
+        Log.d(Config.APP_ID, "处理限制");
+    }
+
+    /**
+     * 持卡人验证
+     * GET DATA命令/响应，VERIFY命令/响应
+     */
+    protected void cardHolderVerify() {
+        Log.d(Config.APP_ID, "持卡人验证");
+    }
+
+    /**
+     * 终端风险管理
+     * GET DATA命令/响应
+     */
+    protected void termRiskManage() {
+        Log.d(Config.APP_ID, "终端风险管理");
+    }
+
+    /**
+     * 终端行为分析
+     * GENERATE AC命令
+     */
+    protected void termActionAnalyze() {
+        Log.d(Config.APP_ID, "终端行为分析");
+    }
+
+    /**
+     * 联机处理
+     */
+    protected void onLineDeal() {
+        Log.d(Config.APP_ID, "联机处理");
+    }
+
+    /**
+     * 发卡行认证
+     * EXTERNAL AUTHENTICATE命令/响应
+     */
+    protected void issuerVerify() {
+        Log.d(Config.APP_ID, "发卡行认证");
+    }
+
+    /**
+     * 交易结束
+     * GENERATE AC命令/响应
+     */
+    protected void transactionDone() {
+        Log.d(Config.APP_ID, "交易结束");
+    }
+
+    /**
+     * 发卡行脚本处理
+     * 发卡行脚本命令/响应
+     */
+    protected void issuerScriptDeal() {
+        Log.d(Config.APP_ID, "发卡行脚本处理");
+    }
+
 }

@@ -8,6 +8,7 @@ import android.content.SharedPreferences;
  */
 public class Config {
 
+    public static final String TERMINAL_NAME_CN = "飞天诚信T1";
     public static final String APP_ID = "com.ftsafe.ecard";
     public static final String SERVER_URL = "http://192.168.9.202:8080/epload";
     public static final String CHARSET = "utf-8";

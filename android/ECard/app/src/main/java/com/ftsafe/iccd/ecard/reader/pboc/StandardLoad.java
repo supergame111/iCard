@@ -1,19 +1,16 @@
 package com.ftsafe.iccd.ecard.reader.pboc;
 
+import android.support.annotation.NonNull;
 import android.util.Log;
 
 import com.ftsafe.iccd.ecard.Config;
 import com.ftsafe.iccd.ecard.SPEC;
+import com.ftsafe.iccd.ecard.Terminal;
 import com.ftsafe.iccd.ecard.bean.Card;
-import com.ftsafe.iccd.ecard.reader.pboc.*;
-import com.ftsafe.iccd.ecard.reader.pboc.StandardPboc;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.Arrays;
 
-import ftsafe.common.BaseFunction;
 import ftsafe.common.Util;
 import ftsafe.reader.tech.Iso7816;
 import ftsafe.reader.tech.Iso7816.BerTLV;
@@ -52,7 +49,10 @@ public class StandardLoad extends com.ftsafe.iccd.ecard.reader.pboc.StandardPboc
                 continue;
             Log.d(Config.APP_ID, "选择 " + aid + " 应用完成");
 
+            // initial BerTLV
             final Iso7816.BerHouse berHouse = new Iso7816.BerHouse();
+            // initialize Terminal
+            Terminal terminal = initTerminal();
 
             // collect info
             Iso7816.BerTLV.extractPrimitives(berHouse, rsp);
@@ -62,7 +62,7 @@ public class StandardLoad extends com.ftsafe.iccd.ecard.reader.pboc.StandardPboc
             // 应用初始化
             /*--------------------------------------------------------------*/
             // GPO
-            byte[] pdol = buildPDOL(berHouse);
+            byte[] pdol = buildPDOL(berHouse, terminal);
             Log.e(Config.APP_ID, "PDOL=" + Util.toHexString(pdol));
             rsp = tag.getProcessingOptions(pdol);
             if (rsp.isOkey() == false)
@@ -82,11 +82,13 @@ public class StandardLoad extends com.ftsafe.iccd.ecard.reader.pboc.StandardPboc
             /*--------------------------------------------------------------*/
             // 处理限制
             /*--------------------------------------------------------------*/
-            dealLimit(berHouse);
+            processRestrict(berHouse, terminal);
+            Log.d(Config.APP_ID, "处理限制完成");
             /*--------------------------------------------------------------*/
-            // GENERATE AC
+            // 持卡人验证
             /*--------------------------------------------------------------*/
-
+            cardHolderVerify(berHouse, terminal);
+            Log.d(Config.APP_ID, "持卡人验证完成");
             /*--------------------------------------------------------------*/
             // EXTERNAL AUTHENTICATE
             /*--------------------------------------------------------------*/
@@ -102,6 +104,30 @@ public class StandardLoad extends com.ftsafe.iccd.ecard.reader.pboc.StandardPboc
 
         }
         return card.isUnknownCard() ? HINT.RESETANDGONEXT : HINT.STOP;
+    }
+
+    @NonNull
+    private Terminal initTerminal() {
+        Log.d(Config.APP_ID, "初始化终端参数");
+        byte vlpIndicator = 0;
+        byte[] termTransAtr = {0x48, 0, 0, 0};
+        byte transType = 0;
+        // 授权金额
+        byte[] amtAuthNum = {0, 0, 0, 0, 0, 0};
+        // 其他授权金额
+        byte[] amtOtherNum = {0, 0, 0, 0, 0, 0};
+        byte cappFlag = 0;
+        byte smAlgSupp = 0;
+        Terminal terminal = new Terminal(vlpIndicator, termTransAtr, transType, amtAuthNum, amtOtherNum, cappFlag, smAlgSupp);
+        byte[] countryCode = {0x01, 0x56};
+        byte[] tvr = {(byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00};
+        // 国家代码
+        terminal.setCountryCode(countryCode);
+        // 交易货币代码
+        terminal.setTransCurcyCode(countryCode);
+        // FIXME：终端验证结果
+        terminal.setTVR(tvr);
+        return terminal;
     }
 
     private final Iso7816.BerHouse topTLVs = new Iso7816.BerHouse();
@@ -136,76 +162,6 @@ public class StandardLoad extends com.ftsafe.iccd.ecard.reader.pboc.StandardPboc
         }
 
         return ret;
-    }
-
-    private static void buildPDO(ByteBuffer out, int len, byte... val) {
-        final int n = Math.min((val != null) ? val.length : 0, len);
-        int i = 0;
-        while (i < n) out.put(val[i++]);
-        while (i++ < len) out.put((byte) 0);
-    }
-
-    private static byte[] buildPDOL(Iso7816.BerHouse tlvs) {
-        final ByteBuffer buff = ByteBuffer.allocate(64);
-        buff.put((byte) 0x83).put((byte) 0x00);
-        try {
-            final byte[] pdol = tlvs.findFirst((short) 0x9F38).v.getBytes();
-            //Log.e(Config.APP_ID, "9F38="+Util.toHexString(pdol));
-            ArrayList<BerTLV> list = BerTLV.extractOptionList(pdol);
-            for (Iso7816.BerTLV tlv : list) {
-                final int tag = tlv.t.toInt();
-                final int len = tlv.l.toInt();
-                switch (tag) {
-                    case 0x9F66:
-                        // 终端交易属性
-                        buildPDO(buff, len, (byte) 0x48, (byte) 0x00, (byte) 0x00, (byte) 0x00);
-                        break;
-                    case 0x9F02:
-                        // 授权金额
-                        buildPDO(buff, len, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00);
-                        break;
-                    case 0x9F03:
-                        // 其它金额
-                        buildPDO(buff, len, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00);
-                        break;
-                    case 0x9F1A:
-                        // 终端国家代码
-                        buildPDO(buff, len, (byte) 0x01, (byte) 0x56);
-                        break;
-                    case 0x9F37:
-                        // 不可预知数
-                        byte[] rand = Util.getRandom(4);
-                        buildPDO(buff, len, rand);
-                        break;
-                    case 0x5F2A:
-                        // 交易货币代码
-                        buildPDO(buff, len, (byte) 0x01, (byte) 0x56);
-                        break;
-                    case 0x95:
-                        // 终端验证结果
-                        buildPDO(buff, len, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00);
-                        break;
-                    case 0x9A:
-                        // 交易日期
-                        buildPDO(buff, len, Util.getSysDate(3));
-                        break;
-                    case 0x9C:
-                        // 交易类型
-                        buildPDO(buff, len, (byte) 0x00);
-                        break;
-                    case 0xDF60:
-                        // CAPP交易指示位
-                        buildPDO(buff, len, (byte) 0x00);
-                        break;
-                    default:
-                        throw null;
-                }
-            } // 更新数据长度
-            buff.put(1, (byte) (buff.position() - 2));
-        } catch (Exception e) {
-            buff.position(2);
-        }
-        return Arrays.copyOfRange(buff.array(), 0, buff.position());
     }
 
 }

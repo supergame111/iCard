@@ -7,6 +7,7 @@ import com.ftsafe.iccd.ecard.SPEC;
 import com.ftsafe.iccd.ecard.Terminal;
 import com.ftsafe.iccd.ecard.bean.Application;
 import com.ftsafe.iccd.ecard.bean.Card;
+import com.ftsafe.iccd.ecard.pojo.ClientInfo;
 import com.ftsafe.iccd.ecard.pojo.PbocTag;
 
 import java.io.IOException;
@@ -15,7 +16,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 
 import ftsafe.common.Util;
-import ftsafe.common.encryption.DES;
+import ftsafe.common.encryption.TripleDES;
 import ftsafe.reader.Reader;
 import ftsafe.reader.tech.Iso7816;
 
@@ -101,9 +102,9 @@ public abstract class StandardPboc {
     protected static int EMVMode;
     protected static int MAX_LOG = 10;
     protected static int SFI_LOG = 24;
-    protected static byte TRANS_MODE_PBOC = 0x01;
-    protected static byte TRANS_MODE_VISA = 0x02;
-    protected static byte TRANS_MODE_MASTERCARD = 0x10;
+    protected static int TRANS_MODE_PBOC = 0x01;
+    protected static int TRANS_MODE_VISA = 0x02;
+    protected static int TRANS_MODE_MASTERCARD = 0x10;
     protected static byte TRANS_MODE_EMV = (byte) 0x80;
     //transaction type
     protected static byte TERM_TRANS_CASH = 0;
@@ -1345,408 +1346,273 @@ public abstract class StandardPboc {
 
     byte[] verifyARQC(Iso7816.BerHouse berHouse, byte[] bACKey, byte[] bMACKey, byte[] bENCKey, boolean bMasterKey) throws Exception {
 
-
-//        unsigned char ucACKey[16] = {0};
-//        unsigned char ucMACKey[16] = {0};
-//        unsigned char ucENCKey[16] = {0};
-//        unsigned char ucTACKey[16] = {0};
-//        unsigned char ucTMACKey[16] = {0};
-//        unsigned char ucTENCKey[16] = {0};
-//        int nKeyLen = 16;
-//        unsigned char ucData[300] = {0};
-//        int nDataLen;
-//        unsigned char ucARQC[16] = {0};
-//        unsigned char ucARPC[16] = {0};
-//        unsigned char ucARPCSrc[8] = {0};
-//        unsigned char ucDIV[16] = {0};
-//
-//        memcpy(ucACKey, pACKey, 16);
-//        memcpy(ucMACKey, pMACKey, 16);
-//        memcpy(ucENCKey, pENCKey, 16);
-//
-//        char caPAN[21] = {0};
-//        char caPANSeq[3] = {0};
-//        BCDtoASCII(m_CardInfo.PAN, caPAN, m_CardInfo.PANLen*2);
-//        BCDtoASCII(&m_CardInfo.PANSeq, caPANSeq, 2);
-//        CString sz5A = CString(caPAN);
-//        CString sz5F34 = CString(caPANSeq);
-//        sz5A.Replace("F","");
-//        sz5A.Replace("f","");
-//        CString szDIV = "";
-
         if ((bACKey != null && bACKey.length == 16) || (bMACKey != null && bMACKey.length == 16) || (bENCKey != null && bENCKey.length == 16)) {
+            // generate cardInfo
+            ClientInfo clientInfo = new ClientInfo(berHouse);
+
+            int EMVMode = this.EMVMode;
+
             String pan = berHouse.findFirst(PbocTag.PAN).v.toString();
             String panSeq = berHouse.findFirst(PbocTag.PAN_SERIAL).v.toString();
             String str5A = pan.toUpperCase().replace("F", "");
             String str5F34 = panSeq.trim();
             String strDIV;
-            if (bMasterKey) {
-                //发卡行主密钥
-//                szDIV = sz5A + sz5F34;
-//                szDIV = szDIV.Right(16);
-//                memset(ucDIV, 0xFF, sizeof(ucDIV));
-//                AsciiToBcd(szDIV.GetBuffer(0), ucDIV, szDIV.GetLength());
-//FIXME:                Do_XOR(ucDIV + 8, ucDIV, 8);
+            byte[] DIV = new byte[16];
+            byte[] ACKey = new byte[16], MACKey = new byte[16], ENCKey = new byte[16];
+            byte[] TACKey = new byte[16], TMACKey = new byte[16], TENCKey = new byte[16];
+
+            if (bMasterKey) { // masterKey
                 strDIV = str5A + str5F34;
                 int len = strDIV.length();
                 if (len > 16)
                     strDIV = strDIV.substring(strDIV.length() - 16);
-                byte[] bDIV = new byte[16];
-                Arrays.fill(bDIV, (byte) 0xFF);
-                System.arraycopy(Util.toBytes(strDIV), 0, bDIV, 0, 8);
-                bDIV = Util.calXOR(Arrays.copyOf(bDIV, 8), Arrays.copyOfRange(bDIV, 8, 16), 8);
+                Arrays.fill(DIV, (byte) 0xFF);
+                System.arraycopy(Util.toBytes(strDIV), 0, DIV, 0, 8);
+                byte[] tmp = Util.calXOR(Arrays.copyOfRange(DIV, 8, 16), Arrays.copyOf(DIV, 8), 8);
+                System.arraycopy(tmp, 0, DIV, 8, 8);
                 //算法标识 04 使用国密算法
-                if ((EMVMode == TRANS_MODE_PBOC) && (berHouse.findFirst(PbocTag.ISSUER_APP_DATA).v.getBytes()[7] == (byte) 0x04)) {
+                if ((EMVMode == TRANS_MODE_PBOC) && clientInfo.issuAppData[7] == (byte) 0x04) {
 //                    SM4Encrypt(ucDIV, 16, CD_SM4_ECB, NULL, ucACKey, ucTACKey, & nKeyLen);
 //                    SM4Encrypt(ucDIV, 16, CD_SM4_ECB, NULL, ucMACKey, ucTMACKey, & nKeyLen);
 //                    SM4Encrypt(ucDIV, 16, CD_SM4_ECB, NULL, ucENCKey, ucTENCKey, & nKeyLen);
                 }
                 // 国际算法
                 else {
-                    DES.encryptMode()
-                    TriDESEncrypt(ucDIV, 16, CD_DES_ECB, NULL, ucACKey, 16, ucTACKey, & nKeyLen);
-                    TriDESEncrypt(ucDIV, 16, CD_DES_ECB, NULL, ucMACKey, 16, ucTMACKey, & nKeyLen);
-                    TriDESEncrypt(ucDIV, 16, CD_DES_ECB, NULL, ucENCKey, 16, ucTENCKey, & nKeyLen);
+                    TACKey = TripleDES.encrypt(bACKey, DIV, null);
+                    TMACKey = TripleDES.encrypt(bMACKey, DIV, null);
+                    TENCKey = TripleDES.encrypt(bENCKey, DIV, null);
+//                    // data dataLen MODE iv, Key KeyLen outKey outKeyLen
+//                    TriDESEncrypt(ucDIV, 16, CD_DES_ECB, NULL, ucACKey, 16, ucTACKey, & nKeyLen);
+//                    TriDESEncrypt(ucDIV, 16, CD_DES_ECB, NULL, ucMACKey, 16, ucTMACKey, & nKeyLen);
+//                    TriDESEncrypt(ucDIV, 16, CD_DES_ECB, NULL, ucENCKey, 16, ucTENCKey, & nKeyLen);
 
                 }
             } // end bMasterKey
-        }
-
-        BCDtoASCII(m_CardInfo.PAN, caPAN, m_CardInfo.PANLen * 2);
-        BCDtoASCII( & m_CardInfo.PANSeq, caPANSeq, 2);
-        CString sz5A = CString(caPAN);
-        CString sz5F34 = CString(caPANSeq);
-        sz5A.Replace("F", "");
-        sz5A.Replace("f", "");
-        CString szDIV = "";
-
-        if (bMasterKey) {
-            if ((m_nEMVMode == TRANS_MODE_PBOC) && m_CardInfo.IssuAppData[7] == 0x04)//算法标识 04 使用国密算法
+            else { // no masterKey
+                TACKey = bACKey;
+                TMACKey = bMACKey;
+                TENCKey = bENCKey;
+            }
+            // 分散密钥
+            Arrays.fill(DIV, (byte) 0);
+            if ((EMVMode == TRANS_MODE_VISA) && (clientInfo.issuAppData[2] == 0x0A || clientInfo.issuAppData[2] == 0x11)) { //密文版本号10或17
+                byte[] tmp = Util.calXOR(new byte[]{(byte) 0xFF, (byte) 0xFF}, clientInfo.ATC, 2);
+                System.arraycopy(tmp, 0, DIV, 14, 2);
+                ACKey = TACKey;
+                MACKey = Util.calXOR(TMACKey, DIV, 16);
+                ENCKey = Util.calXOR(TENCKey, DIV, 16);
+            } else if ((EMVMode == TRANS_MODE_PBOC) && clientInfo.issuAppData[7] == 0x04)//算法标识 04 使用国密算法
             {
-                //发卡行主密钥
-                szDIV = sz5A + sz5F34;
-                szDIV = szDIV.Right(16);
-                memset(ucDIV, 0xFF, sizeof(ucDIV));
-                AsciiToBcd(szDIV.GetBuffer(0), ucDIV, szDIV.GetLength());
-                Do_XOR(ucDIV + 8, ucDIV, 8);
-                SM4Encrypt(ucDIV, 16, CD_SM4_ECB, NULL, ucACKey, ucTACKey, & nKeyLen);
-                SM4Encrypt(ucDIV, 16, CD_SM4_ECB, NULL, ucMACKey, ucTMACKey, & nKeyLen);
-                SM4Encrypt(ucDIV, 16, CD_SM4_ECB, NULL, ucENCKey, ucTENCKey, & nKeyLen);
+                byte[] tmp = Util.calXOR(new byte[]{(byte) 0xFF, (byte) 0xFF}, clientInfo.ATC, 2);
+                System.arraycopy(tmp, 0, DIV, 14, 2);
+//                SM4Encrypt(ucDIV, 16, CD_SM4_ECB, NULL, ucTACKey, ucACKey, & nKeyLen);
+//                SM4Encrypt(ucDIV, 16, CD_SM4_ECB, NULL, ucTMACKey, ucMACKey, & nKeyLen);
+//                SM4Encrypt(ucDIV, 16, CD_SM4_ECB, NULL, ucTENCKey, ucENCKey, & nKeyLen);
+            } else if ((EMVMode == TRANS_MODE_MASTERCARD) && (clientInfo.issuAppData[1] == 0x10 || clientInfo.issuAppData[1] == 0x11)) {
+                //MasterCard Proprietary SKD 等文档
+                System.arraycopy(clientInfo.ATC, 0, DIV, 0, 2);
+                System.arraycopy(clientInfo.unpredictNum, 0, DIV, 4, 4);
+                System.arraycopy(DIV, 0, DIV, 8, 8);
+                DIV[2] = (byte) 0xF0;
+                DIV[10] = (byte) 0x0F;
+                ACKey = TripleDES.encrypt(TACKey, DIV, null);
+
+                Arrays.fill(DIV, (byte) 0);
+                System.arraycopy(clientInfo.appCrypt, 0, DIV, 0, 8);
+                System.arraycopy(DIV, 0, DIV, 8, 8);
+                DIV[2] = (byte) 0xF0;
+                DIV[10] = (byte) 0x0F;
+                MACKey = TripleDES.encrypt(TMACKey, DIV, null);
+                ENCKey = TripleDES.encrypt(TENCKey, DIV, null);
+            } else if ((EMVMode == TRANS_MODE_PBOC) && (clientInfo.issuAppData[2] == 0x01 || clientInfo.issuAppData[2] == 0x17)) {
+                byte[] tmp = Util.calXOR(new byte[]{(byte) 0xFF, (byte) 0xFF}, clientInfo.ATC, 2);
+                System.arraycopy(tmp, 0, DIV, 14, 2);
+                ACKey = TripleDES.encrypt(TACKey, DIV, null);
+                MACKey = TripleDES.encrypt(TMACKey, DIV, null);
+                ENCKey = TripleDES.encrypt(TENCKey, DIV, null);
             } else {
-                //发卡行主密钥
-                szDIV = sz5A + sz5F34;
-                szDIV = szDIV.Right(16);
-                memset(ucDIV, 0xFF, sizeof(ucDIV));
-                AsciiToBcd(szDIV.GetBuffer(0), ucDIV, szDIV.GetLength());
-                Do_XOR(ucDIV + 8, ucDIV, 8);
-                TriDESEncrypt(ucDIV, 16, CD_DES_ECB, NULL, ucACKey, 16, ucTACKey, & nKeyLen);
-                TriDESEncrypt(ucDIV, 16, CD_DES_ECB, NULL, ucMACKey, 16, ucTMACKey, & nKeyLen);
-                TriDESEncrypt(ucDIV, 16, CD_DES_ECB, NULL, ucENCKey, 16, ucTENCKey, & nKeyLen);
+                //EMV CSK
+                System.arraycopy(clientInfo.ATC, 0, DIV, 0, 2);
+                System.arraycopy(DIV, 0, DIV, 8, 2);
+                DIV[2] = (byte) 0xF0;
+                DIV[10] = (byte) 0x0F;
+                ACKey = TripleDES.encrypt(TACKey, DIV, null);
+
+                Arrays.fill(DIV, (byte) 0);
+                System.arraycopy(clientInfo.appCrypt, 0, DIV, 0, 8);
+                System.arraycopy(DIV, 0, DIV, 8, 8);
+                DIV[2] = (byte) 0xF0;
+                DIV[10] = (byte) 0x0F;
+                MACKey = TripleDES.encrypt(TMACKey, DIV, null);
+                ENCKey = TripleDES.encrypt(TENCKey, DIV, null);
+            }
+            int nDataLen = 0;
+            byte[] ucData = new byte[512];
+            byte[] ARQC = new byte[8];
+            byte[] iv = {(byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 0,};
+            // 密文版号
+            byte crypto = clientInfo.issuAppData[2];
+            // 密文版号:17
+            if (crypto == 0x11) {
+                nDataLen = 0;
+                System.arraycopy(clientInfo.amtAuthNum, 0, ucData, nDataLen, clientInfo.amtAuthNum.length);
+                nDataLen += clientInfo.amtAuthNum.length;
+
+                System.arraycopy(clientInfo.unpredictNum, 0, ucData, nDataLen, clientInfo.unpredictNum.length);
+                nDataLen += clientInfo.unpredictNum.length;
+
+                System.arraycopy(clientInfo.ATC, 0, ucData, nDataLen, clientInfo.ATC.length);
+                nDataLen += clientInfo.ATC.length;
+
+                System.arraycopy(clientInfo.issuAppData, 4, ucData, nDataLen, 1);
+                nDataLen += 1;
+
+                //算法标识 04 使用国密算法
+                if (clientInfo.issuAppData[7] == 0x04) {
+                    //SM4MAC(ucData, nDataLen, ISO_PADDING_2, CD_SM4_MAC_16, NULL, ucACKey, ucARQC);
+                } else { // 国际算法
+                    if (EMVMode == TRANS_MODE_MASTERCARD) { // MASTERCARD
+                        nDataLen = 0;
+                        System.arraycopy(clientInfo.amtAuthNum, 0, ucData, nDataLen, clientInfo.amtAuthNum.length);
+                        nDataLen += clientInfo.amtAuthNum.length;
+
+                        System.arraycopy(clientInfo.amtOtherNum, 0, ucData, nDataLen, clientInfo.amtOtherNum.length);
+                        nDataLen += clientInfo.amtOtherNum.length;
+
+                        System.arraycopy(clientInfo.countryCode, 0, ucData, nDataLen, clientInfo.countryCode.length);
+                        nDataLen += clientInfo.countryCode.length;
+
+                        System.arraycopy(clientInfo.TVR, 0, ucData, nDataLen, clientInfo.TVR.length);
+                        nDataLen += clientInfo.TVR.length;
+
+                        System.arraycopy(clientInfo.transCurcyCode, 0, ucData, nDataLen, clientInfo.transCurcyCode.length);
+                        nDataLen += clientInfo.transCurcyCode.length;
+
+                        System.arraycopy(clientInfo.transDate, 0, ucData, nDataLen, clientInfo.transDate.length); //交易日期
+                        nDataLen += clientInfo.transDate.length;
+
+                        ucData[nDataLen] = clientInfo.transTypeValue;
+                        nDataLen += 1;
+
+                        System.arraycopy(clientInfo.unpredictNum, 0, ucData, nDataLen, clientInfo.unpredictNum.length);
+                        nDataLen += clientInfo.unpredictNum.length;
+
+                        System.arraycopy(clientInfo.AIP, 0, ucData, nDataLen, clientInfo.AIP.length);
+                        nDataLen += clientInfo.AIP.length;
+
+                        System.arraycopy(clientInfo.ATC, 0, ucData, nDataLen, clientInfo.ATC.length);
+                        nDataLen += clientInfo.ATC.length;
+
+                        System.arraycopy(clientInfo.issuAppData, 2, ucData, nDataLen, 6);
+                        nDataLen += 6;
+
+                        ARQC = TripleDES.mac(ACKey, ACKey.length, ucData, nDataLen, iv, 8, 0);
+                    } else if (EMVMode == TRANS_MODE_PBOC || EMVMode == TRANS_MODE_VISA) {
+                        ARQC = TripleDES.mac(ACKey, ACKey.length, ucData, nDataLen, iv, 8, 0);
+                    } else {
+                        // Nothing done
+                    }
+                }
+
+            }
+            // 密文版本号:10
+            else if (crypto == 0x0A) {
+                nDataLen = 0;
+                System.arraycopy(clientInfo.amtAuthNum, 0, ucData, nDataLen, clientInfo.amtAuthNum.length);
+                nDataLen += clientInfo.amtAuthNum.length;
+
+                System.arraycopy(clientInfo.amtOtherNum, 0, ucData, nDataLen, clientInfo.amtOtherNum.length);
+                nDataLen += clientInfo.amtOtherNum.length;
+
+                System.arraycopy(clientInfo.countryCode, 0, ucData, nDataLen, clientInfo.countryCode.length);
+                nDataLen += clientInfo.countryCode.length;
+
+                System.arraycopy(clientInfo.TVR, 0, ucData, nDataLen, clientInfo.TVR.length);
+                nDataLen += clientInfo.TVR.length;
+
+                System.arraycopy(clientInfo.transCurcyCode, 0, ucData, nDataLen, clientInfo.transCurcyCode.length);
+                nDataLen += clientInfo.transCurcyCode.length;
+
+                System.arraycopy(clientInfo.transDate, 0, ucData, nDataLen, clientInfo.transDate.length); //交易日期
+                nDataLen += clientInfo.transDate.length;
+
+                ucData[nDataLen] = clientInfo.transTypeValue;
+                nDataLen += 1;
+
+                System.arraycopy(clientInfo.unpredictNum, 0, ucData, nDataLen, clientInfo.unpredictNum.length);
+                nDataLen += clientInfo.unpredictNum.length;
+
+                System.arraycopy(clientInfo.AIP, 0, ucData, nDataLen, clientInfo.AIP.length);
+                nDataLen += clientInfo.AIP.length;
+
+                System.arraycopy(clientInfo.ATC, 0, ucData, nDataLen, clientInfo.ATC.length);
+                nDataLen += clientInfo.ATC.length;
+
+
+                if (clientInfo.issuAppData[7] == 0x04) { //算法标识 04 使用国密算法
+
+                    //SM4MAC(ucData, nDataLen, ISO_PADDING_2, CD_SM4_MAC_16, NULL, ucACKey, ucARQC);
+                } else // 国际算法
+                {
+                    if (EMVMode == TRANS_MODE_PBOC || EMVMode == TRANS_MODE_VISA) {
+                        System.arraycopy(clientInfo.issuAppData, 3, ucData, nDataLen, 4);
+                        nDataLen += 4;
+                        ARQC = TripleDES.mac(ACKey, ACKey.length, ucData, nDataLen, iv, 8, 0);
+                    } else if (EMVMode == TRANS_MODE_MASTERCARD) {
+                        System.arraycopy(clientInfo.issuAppData, 2, ucData, nDataLen, 6);
+                        nDataLen += 6;
+                        ARQC = TripleDES.mac(ACKey, ACKey.length, ucData, nDataLen, iv, 8, 0);
+                    } else {
+                        // Nothing done
+                    }
+                }
             }
 
-        } else {
-            memcpy(ucTACKey, ucACKey, 16);
-            memcpy(ucTMACKey, ucMACKey, 16);
-            memcpy(ucTENCKey, ucENCKey, 16);
-        }
-
-        memset(ucDIV, 0, 16);
-        memset(ucACKey, 0, 16);
-        memset(ucMACKey, 0, 16);
-        memset(ucENCKey, 0, 16);
-
-        if ((m_EMVMain.m_nEMVMode == TRANS_MODE_VISA) && (m_EMVMain.m_CardInfo.IssuAppData[2] == 0x0A || m_EMVMain.m_CardInfo.IssuAppData[2] == 0x11))//密文版本号10或17
-        {
-            memcpy(ucDIV + 6, m_EMVMain.m_CardInfo.ATC, 2);
-            memset(ucDIV + 14, 0xFF, 2);
-            Do_XOR(ucDIV + 14, ucDIV + 6, 2);
-            memcpy(ucACKey, ucTACKey, 16);
-            memcpy(ucMACKey, ucTMACKey, 16);
-            memcpy(ucENCKey, ucTENCKey, 16);
-            Do_XOR(ucMACKey, ucDIV, 16);
-            Do_XOR(ucENCKey, ucDIV, 16);
-        } else if ((m_EMVMain.m_nEMVMode == TRANS_MODE_PBOC) && m_EMVMain.m_CardInfo.IssuAppData[7] == 0x04)//算法标识 04 使用国密算法
-        {
-            memcpy(ucDIV + 6, m_EMVMain.m_CardInfo.ATC, 2);
-            memset(ucDIV + 14, 0xFF, 2);
-            Do_XOR(ucDIV + 14, ucDIV + 6, 2);
-            SM4Encrypt(ucDIV, 16, CD_SM4_ECB, NULL, ucTACKey, ucACKey, & nKeyLen);
-            SM4Encrypt(ucDIV, 16, CD_SM4_ECB, NULL, ucTMACKey, ucMACKey, & nKeyLen);
-            SM4Encrypt(ucDIV, 16, CD_SM4_ECB, NULL, ucTENCKey, ucENCKey, & nKeyLen);
-        } else if ((m_EMVMain.m_nEMVMode == TRANS_MODE_MASTERCARD) && (m_EMVMain.m_CardInfo.IssuAppData[1] == 0x10 || m_EMVMain.m_CardInfo.IssuAppData[1] == 0x11)) {
-            //MasterCard Proprietary SKD 等文档
-            memcpy(ucDIV, m_CardInfo.ATC, 2);
-            memcpy(ucDIV + 4, m_TermInfo.UnpredictNum, 4);
-            memcpy(ucDIV + 8, ucDIV, 8);
-            ucDIV[2] = 0xF0;
-            ucDIV[10] = 0x0F;
-            TriDESEncrypt(ucDIV, 16, CD_DES_ECB, NULL, ucTACKey, 16, ucACKey, & nKeyLen);
-
-            memset(ucDIV, 0, sizeof(ucDIV));
-            memcpy(ucDIV, m_CardInfo.AppCrypt, 8);
-            memcpy(ucDIV + 8, ucDIV, 8);
-            ucDIV[2] = 0xF0;
-            ucDIV[10] = 0x0F;
-            TriDESEncrypt(ucDIV, 16, CD_DES_ECB, NULL, ucTMACKey, 16, ucMACKey, & nKeyLen);
-            TriDESEncrypt(ucDIV, 16, CD_DES_ECB, NULL, ucTENCKey, 16, ucENCKey, & nKeyLen);
-        } else if ((m_EMVMain.m_nEMVMode == TRANS_MODE_PBOC) && (m_EMVMain.m_CardInfo.IssuAppData[2] == 0x01 || m_EMVMain.m_CardInfo.IssuAppData[2] == 0x17)) {
-            memcpy(ucDIV + 6, m_CardInfo.ATC, 2);
-            memset(ucDIV + 14, 0xFF, 2);
-            Do_XOR(ucDIV + 14, ucDIV + 6, 2);
-            TriDESEncrypt(ucDIV, 16, CD_DES_ECB, NULL, ucTACKey, 16, ucACKey, & nKeyLen);
-            TriDESEncrypt(ucDIV, 16, CD_DES_ECB, NULL, ucTMACKey, 16, ucMACKey, & nKeyLen);
-            TriDESEncrypt(ucDIV, 16, CD_DES_ECB, NULL, ucTENCKey, 16, ucENCKey, & nKeyLen);
-        } else {
-            //EMV CSK
-            memcpy(ucDIV, m_CardInfo.ATC, 2);
-            memcpy(ucDIV + 8, ucDIV, 2);
-            ucDIV[2] = 0xF0;
-            ucDIV[10] = 0x0F;
-            TriDESEncrypt(ucDIV, 16, CD_DES_ECB, NULL, ucTACKey, 16, ucACKey, & nKeyLen);
-
-            memset(ucDIV, 0, sizeof(ucDIV));
-            memcpy(ucDIV, m_CardInfo.AppCrypt, 8);
-            memcpy(ucDIV + 8, ucDIV, 8);
-            ucDIV[2] = 0xF0;
-            ucDIV[10] = 0x0F;
-            TriDESEncrypt(ucDIV, 16, CD_DES_ECB, NULL, ucTMACKey, 16, ucMACKey, & nKeyLen);
-            TriDESEncrypt(ucDIV, 16, CD_DES_ECB, NULL, ucTENCKey, 16, ucENCKey, & nKeyLen);
-        }
-
-        if (m_CardInfo.IssuAppData[2] == 0x17)//密文版本号17 for PBOC
-        {
-            nDataLen = 0;
-            memcpy(ucData, m_TermInfo.AmtAuthNum, sizeof(m_TermInfo.AmtAuthNum));
-            nDataLen += sizeof(m_TermInfo.AmtAuthNum);
-
-            memcpy(ucData + nDataLen, m_TermInfo.UnpredictNum, sizeof(m_TermInfo.UnpredictNum));
-            nDataLen += sizeof(m_TermInfo.UnpredictNum);
-
-            memcpy(ucData + nDataLen, m_CardInfo.ATC, sizeof(m_CardInfo.ATC));
-            nDataLen += sizeof(m_CardInfo.ATC);
-
-            memcpy(ucData + nDataLen, m_CardInfo.IssuAppData + 4, 1);
-            nDataLen += 1;
-
-            if ((m_nEMVMode == TRANS_MODE_PBOC) && m_CardInfo.IssuAppData[7] == 0x04)//算法标识 04 使用国密算法
-            {
-                SM4MAC(ucData, nDataLen, ISO_PADDING_2, CD_SM4_MAC_16, NULL, ucACKey, ucARQC);
-            } else {
-                TriDESMAC(ucData, nDataLen, ISO_PADDING_2, NULL, ucACKey, 16, ucARQC);
+            if (!Arrays.equals(ARQC, clientInfo.appCrypt)) {
+                throw new Exception("ARQC与应用密文不匹配" + Util.toHexString(ARQC));
             }
 
-        } else if ((m_nEMVMode == TRANS_MODE_VISA) && m_CardInfo.IssuAppData[2] == 0x11)//密文版本号17 for VISA
-        {
-            nDataLen = 0;
-            memcpy(ucData, m_TermInfo.AmtAuthNum, sizeof(m_TermInfo.AmtAuthNum));
-            nDataLen += sizeof(m_TermInfo.AmtAuthNum);
-
-            memcpy(ucData + nDataLen, m_TermInfo.UnpredictNum, sizeof(m_TermInfo.UnpredictNum));
-            nDataLen += sizeof(m_TermInfo.UnpredictNum);
-
-            memcpy(ucData + nDataLen, m_CardInfo.ATC, sizeof(m_CardInfo.ATC));
-            nDataLen += sizeof(m_CardInfo.ATC);
-
-            memcpy(ucData + nDataLen, m_CardInfo.IssuAppData + 4, 1);
-            nDataLen += 1;
-
-            TriDESMAC(ucData, nDataLen, ISO_PADDING_1, NULL, ucACKey, 16, ucARQC);
-        } else if ((m_nEMVMode == TRANS_MODE_VISA) && m_CardInfo.IssuAppData[2] == 0x0A)//密文版本号10 for VISA
-        {
-            nDataLen = 0;
-            memcpy(ucData, m_TermInfo.AmtAuthNum, sizeof(m_TermInfo.AmtAuthNum));
-            nDataLen += sizeof(m_TermInfo.AmtAuthNum);
-
-            memcpy(ucData + nDataLen, m_TermInfo.AmtOtherNum, sizeof(m_TermInfo.AmtOtherNum));
-            nDataLen += sizeof(m_TermInfo.AmtOtherNum);
-
-            memcpy(ucData + nDataLen, m_TermInfo.CountryCode, sizeof(m_TermInfo.CountryCode));
-            nDataLen += sizeof(m_TermInfo.CountryCode);
-
-            memcpy(ucData + nDataLen, m_TermInfo.TVR, sizeof(m_TermInfo.TVR));
-            nDataLen += sizeof(m_TermInfo.TVR);
-
-            memcpy(ucData + nDataLen, m_TermInfo.TransCurcyCode, sizeof(m_TermInfo.TransCurcyCode));
-            nDataLen += sizeof(m_TermInfo.TransCurcyCode);
-
-            memcpy(ucData + nDataLen, m_TermInfo.TransDate, sizeof(m_TermInfo.TransDate));    //交易日期
-            nDataLen += sizeof(m_TermInfo.TransDate);
-
-            ucData[nDataLen] = m_TermInfo.TransTypeValue;
-            nDataLen += sizeof(m_TermInfo.TransTypeValue);
-
-            memcpy(ucData + nDataLen, m_TermInfo.UnpredictNum, sizeof(m_TermInfo.UnpredictNum));
-            nDataLen += sizeof(m_TermInfo.UnpredictNum);
-
-            memcpy(ucData + nDataLen, m_CardInfo.AIP, sizeof(m_CardInfo.AIP));
-            nDataLen += sizeof(m_CardInfo.AIP);
-
-            memcpy(ucData + nDataLen, m_CardInfo.ATC, sizeof(m_CardInfo.ATC));
-            nDataLen += sizeof(m_CardInfo.ATC);
-
-            memcpy(ucData + nDataLen, m_CardInfo.IssuAppData + 3, 4);
-            nDataLen += 4;
-
-            TriDESMAC(ucData, nDataLen, ISO_PADDING_1, NULL, ucACKey, 16, ucARQC);
-        } else if ((m_nEMVMode == TRANS_MODE_MASTERCARD) && (m_CardInfo.IssuAppData[1] == 0x10 || m_CardInfo.IssuAppData[1] == 0x11))//密文版本号10 for MASTERCARD
-        {
-            nDataLen = 0;
-            memcpy(ucData, m_TermInfo.AmtAuthNum, sizeof(m_TermInfo.AmtAuthNum));
-            nDataLen += sizeof(m_TermInfo.AmtAuthNum);
-
-            memcpy(ucData + nDataLen, m_TermInfo.AmtOtherNum, sizeof(m_TermInfo.AmtOtherNum));
-            nDataLen += sizeof(m_TermInfo.AmtOtherNum);
-
-            memcpy(ucData + nDataLen, m_TermInfo.CountryCode, sizeof(m_TermInfo.CountryCode));
-            nDataLen += sizeof(m_TermInfo.CountryCode);
-
-            memcpy(ucData + nDataLen, m_TermInfo.TVR, sizeof(m_TermInfo.TVR));
-            nDataLen += sizeof(m_TermInfo.TVR);
-
-            memcpy(ucData + nDataLen, m_TermInfo.TransCurcyCode, sizeof(m_TermInfo.TransCurcyCode));
-            nDataLen += sizeof(m_TermInfo.TransCurcyCode);
-
-            memcpy(ucData + nDataLen, m_TermInfo.TransDate, sizeof(m_TermInfo.TransDate));    //交易日期
-            nDataLen += sizeof(m_TermInfo.TransDate);
-
-            ucData[nDataLen] = m_TermInfo.TransTypeValue;
-            nDataLen += sizeof(m_TermInfo.TransTypeValue);
-
-            memcpy(ucData + nDataLen, m_TermInfo.UnpredictNum, sizeof(m_TermInfo.UnpredictNum));
-            nDataLen += sizeof(m_TermInfo.UnpredictNum);
-
-            memcpy(ucData + nDataLen, m_CardInfo.AIP, sizeof(m_CardInfo.AIP));
-            nDataLen += sizeof(m_CardInfo.AIP);
-
-            memcpy(ucData + nDataLen, m_CardInfo.ATC, sizeof(m_CardInfo.ATC));
-            nDataLen += sizeof(m_CardInfo.ATC);
-
-            memcpy(ucData + nDataLen, m_CardInfo.IssuAppData + 2, 6);
-            nDataLen += 6;
-
-            TriDESMAC(ucData, nDataLen, ISO_PADDING_2, NULL, ucACKey, 16, ucARQC);
-        } else if (m_nEMVMode == TRANS_MODE_MASTERCARD)//for MASTERCARD
-        {
-            nDataLen = 0;
-            memcpy(ucData, m_TermInfo.AmtAuthNum, sizeof(m_TermInfo.AmtAuthNum));
-            nDataLen += sizeof(m_TermInfo.AmtAuthNum);
-
-            memcpy(ucData + nDataLen, m_TermInfo.AmtOtherNum, sizeof(m_TermInfo.AmtOtherNum));
-            nDataLen += sizeof(m_TermInfo.AmtOtherNum);
-
-            memcpy(ucData + nDataLen, m_TermInfo.CountryCode, sizeof(m_TermInfo.CountryCode));
-            nDataLen += sizeof(m_TermInfo.CountryCode);
-
-            memcpy(ucData + nDataLen, m_TermInfo.TVR, sizeof(m_TermInfo.TVR));
-            nDataLen += sizeof(m_TermInfo.TVR);
-
-            memcpy(ucData + nDataLen, m_TermInfo.TransCurcyCode, sizeof(m_TermInfo.TransCurcyCode));
-            nDataLen += sizeof(m_TermInfo.TransCurcyCode);
-
-            memcpy(ucData + nDataLen, m_TermInfo.TransDate, sizeof(m_TermInfo.TransDate));    //交易日期
-            nDataLen += sizeof(m_TermInfo.TransDate);
-
-            ucData[nDataLen] = m_TermInfo.TransTypeValue;
-            nDataLen += sizeof(m_TermInfo.TransTypeValue);
-
-            memcpy(ucData + nDataLen, m_TermInfo.UnpredictNum, sizeof(m_TermInfo.UnpredictNum));
-            nDataLen += sizeof(m_TermInfo.UnpredictNum);
-
-            memcpy(ucData + nDataLen, m_CardInfo.AIP, sizeof(m_CardInfo.AIP));
-            nDataLen += sizeof(m_CardInfo.AIP);
-
-            memcpy(ucData + nDataLen, m_CardInfo.ATC, sizeof(m_CardInfo.ATC));
-            nDataLen += sizeof(m_CardInfo.ATC);
-
-            memcpy(ucData + nDataLen, m_CardInfo.IssuAppData + 2, 6);
-            nDataLen += 6;
-
-            TriDESMAC(ucData, nDataLen, ISO_PADDING_2, NULL, ucACKey, 16, ucARQC);
-        } else {
-            nDataLen = 0;
-            memcpy(ucData, m_TermInfo.AmtAuthNum, sizeof(m_TermInfo.AmtAuthNum));
-            nDataLen += sizeof(m_TermInfo.AmtAuthNum);
-
-            memcpy(ucData + nDataLen, m_TermInfo.AmtOtherNum, sizeof(m_TermInfo.AmtOtherNum));
-            nDataLen += sizeof(m_TermInfo.AmtOtherNum);
-
-            memcpy(ucData + nDataLen, m_TermInfo.CountryCode, sizeof(m_TermInfo.CountryCode));
-            nDataLen += sizeof(m_TermInfo.CountryCode);
-
-            memcpy(ucData + nDataLen, m_TermInfo.TVR, sizeof(m_TermInfo.TVR));
-            nDataLen += sizeof(m_TermInfo.TVR);
-
-            memcpy(ucData + nDataLen, m_TermInfo.TransCurcyCode, sizeof(m_TermInfo.TransCurcyCode));
-            nDataLen += sizeof(m_TermInfo.TransCurcyCode);
-
-            memcpy(ucData + nDataLen, m_TermInfo.TransDate, sizeof(m_TermInfo.TransDate));    //交易日期
-            nDataLen += sizeof(m_TermInfo.TransDate);
-
-            ucData[nDataLen] = m_TermInfo.TransTypeValue;
-            nDataLen += sizeof(m_TermInfo.TransTypeValue);
-
-            memcpy(ucData + nDataLen, m_TermInfo.UnpredictNum, sizeof(m_TermInfo.UnpredictNum));
-            nDataLen += sizeof(m_TermInfo.UnpredictNum);
-
-            memcpy(ucData + nDataLen, m_CardInfo.AIP, sizeof(m_CardInfo.AIP));
-            nDataLen += sizeof(m_CardInfo.AIP);
-
-            memcpy(ucData + nDataLen, m_CardInfo.ATC, sizeof(m_CardInfo.ATC));
-            nDataLen += sizeof(m_CardInfo.ATC);
-
-            memcpy(ucData + nDataLen, m_CardInfo.IssuAppData + 3, 4);
-            nDataLen += 4;
-
-            if ((m_nEMVMode == TRANS_MODE_PBOC) && m_CardInfo.IssuAppData[7] == 0x04)//算法标识 04 使用国密算法
-            {
-                SM4MAC(ucData, nDataLen, ISO_PADDING_2, CD_SM4_MAC_16, NULL, ucACKey, ucARQC);
-            } else {
-                TriDESMAC(ucData, nDataLen, ISO_PADDING_2, NULL, ucACKey, 16, ucARQC);
-            }
-        }
-
-        if (memcmp(ucARQC, m_CardInfo.AppCrypt, 8) != 0) {
-            return ERR_EMV_AC;
-        }
-
-        if (m_CardInfo.CryptInfo == 0x80) {
+//            if (clientInfo.cryptInfo == 0x80) {
             //验证ARQC通过，保存密钥
-            memcpy(m_ucACKey, ucTACKey, 16);
-            memcpy(m_ucMACKey, ucTMACKey, 16);
-            memcpy(m_ucENCKey, ucTENCKey, 16);
-            memcpy(m_ucSACKey, ucACKey, 16);
-            memcpy(m_ucSMACKey, ucMACKey, 16);
-            memcpy(m_ucSENCKey, ucENCKey, 16);
-            m_bVerifyAC = TRUE;
+//                memcpy(m_ucACKey, ucTACKey, 16);
+//                memcpy(m_ucMACKey, ucTMACKey, 16);
+//                memcpy(m_ucENCKey, ucTENCKey, 16);
+//                memcpy(m_ucSACKey, ucACKey, 16);
+//                memcpy(m_ucSMACKey, ucMACKey, 16);
+//                memcpy(m_ucSENCKey, ucENCKey, 16);
+//                m_bVerifyAC = TRUE;
+//            }
+
+            byte[] ARC = {0x30, 0x30};
+            byte[] ArcBuf = new byte[8];
+            Arrays.fill(ArcBuf, (byte) 0);
+            System.arraycopy(ARC, 0, ArcBuf, 0, 2);
+
+            byte[] tmp = new byte[8];
+            for (int i = 0; i < 8; i++) {
+                tmp[i] = (byte) (clientInfo.appCrypt[i] ^ ArcBuf[i]);
+            }
+            byte[] ARPC = new byte[8];
+            if (clientInfo.issuAppData[7] == 0x04)//算法标识 04 使用国密算法
+            {
+                //SM4Encrypt(ucARPCSrc, 8, CD_SM4_ECB, NULL, ucACKey, ucARPC, & nDataLen);
+            } else { // 国际算法
+                if (EMVMode == TRANS_MODE_MASTERCARD) {
+                    ARPC = TripleDES.encrypt(TACKey, tmp, null);
+//                    TriDESEncrypt(ucARPCSrc, 8, CD_DES_ECB, NULL, ucACKey, 16, ucARPC, & nDataLen);
+                } else if (EMVMode == TRANS_MODE_PBOC || EMVMode == TRANS_MODE_VISA) {
+                    ARPC = TripleDES.encrypt(ACKey, tmp, null);
+//                    TriDESEncrypt(ucARPCSrc, 8, CD_DES_ECB, NULL, ucACKey, 16, ucARPC, & nDataLen);
+                } else {
+                    // Nothing done
+                }
+            }
+            byte[] result = new byte[10];
+            System.arraycopy(ARC, 0, result, 0, 2);
+            System.arraycopy(ARPC, 0, result, 2, 8);
+
+            return result;
         }
-
-        byte ucARC[ 2]={
-            0
-        } ;
-        memcpy(ucARC, "\x30\x30", 2);
-        byte ucArcbuf[ 8]={
-            0
-        } ;
-        memset(ucARPCSrc, 0, 8);
-        memcpy(ucArcbuf, ucARC, 2);
-
-        for (int i = 0; i < 8; i++) {
-            ucARPCSrc[i] = m_CardInfo.AppCrypt[i] ^ ucArcbuf[i];
-        }
-
-        if ((m_nEMVMode == TRANS_MODE_PBOC) && m_CardInfo.IssuAppData[7] == 0x04)//算法标识 04 使用国密算法
-        {
-            SM4Encrypt(ucARPCSrc, 8, CD_SM4_ECB, NULL, ucACKey, ucARPC, & nDataLen);
-        } else if ((m_nEMVMode == TRANS_MODE_MASTERCARD) && (m_CardInfo.IssuAppData[1] == 0x10 || m_CardInfo.IssuAppData[1] == 0x11)) {
-            memcpy(ucACKey, ucTACKey, 16);
-            TriDESEncrypt(ucARPCSrc, 8, CD_DES_ECB, NULL, ucACKey, 16, ucARPC, & nDataLen);
-        } else {
-            TriDESEncrypt(ucARPCSrc, 8, CD_DES_ECB, NULL, ucACKey, 16, ucARPC, & nDataLen);
-        }
-
-        memcpy(pucIAData, ucARC, 2);
-        memcpy(pucIAData + 2, ucARPC, 8);
-
-        return 0;
+        return null;
     }
 }

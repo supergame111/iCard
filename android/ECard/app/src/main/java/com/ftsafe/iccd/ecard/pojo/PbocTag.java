@@ -5,6 +5,7 @@ package com.ftsafe.iccd.ecard.pojo;
  */
 public class PbocTag {
     public static final short APP_CRYPTOGRAM = (short) 0x9F26;
+    public static final short CRYPTOGRAM_INFO = (short) 0x9F27;
     public static final short APP_CURRENCY_CODE = (short) 0x9F42;
     public static final short APP_CURRENCY_CODE2 = (short) 0x9F51;
     public static final short APP_CURRENCY_EXPONENT = (short) 0x9F44;
@@ -32,8 +33,11 @@ public class PbocTag {
     public static final short VLP_ISSU_AUTHOR_CODE = (short) 0x9F74;
     public static final short ATC = (short) 0x9F36;
     public static final short LOATC = (short) 0x9F13;
-    public static final short IAC_DENIAL = (short)0x9F0E;
-    public static final short IAC_ONLINE = (short)0x9F0F;
-    public static final short IAC_DEFAULT = (short)0x9F0D;
-    public static final short ISSUER_APP_DATA = (short)0x9F10;
+    public static final short IAC_DENIAL = (short) 0x9F0E;
+    public static final short IAC_ONLINE = (short) 0x9F0F;
+    public static final short IAC_DEFAULT = (short) 0x9F0D;
+    public static final short ISSUER_APP_DATA = (short) 0x9F10;
+    public static final short AMT_AUTHOR_NUM = (short) 0x9F02;
+    public static final short AMT_OTHER_NUM = (short) 0x9F03;
+    public static final short UNPREDICT_NUM = (short) 0x9F37;
 }

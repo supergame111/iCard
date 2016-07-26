@@ -16,6 +16,7 @@ Additional permission under GNU GPL version 3 section 7 */
 package ftsafe.common;
 
 import java.text.SimpleDateFormat;
+import java.util.Arrays;
 import java.util.Date;
 
 public final class Util {
@@ -283,5 +284,17 @@ public final class Util {
             return buffer;
         }
         return null;
+    }
+
+    // padding 0x80 0x00 0x00 0x00
+    public static final byte[] PADDING_80 = {(byte) 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+    // padding 0x00 0x00 0x00 0x00
+    public static final byte[] PADDING_00 = {(byte) 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+
+    public static byte[] padding(byte[] msg, int msgLen, byte[] padding) {
+        int l = 8 - (msgLen % 8);
+        byte[] result = Arrays.copyOf(msg, msg.length + l);
+        System.arraycopy(padding, 0, result, msg.length, l);
+        return result;
     }
 }

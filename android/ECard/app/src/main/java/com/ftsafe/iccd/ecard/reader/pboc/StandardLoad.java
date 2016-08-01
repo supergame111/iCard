@@ -7,6 +7,7 @@ import com.ftsafe.iccd.ecard.Config;
 import com.ftsafe.iccd.ecard.SPEC;
 import com.ftsafe.iccd.ecard.Terminal;
 import com.ftsafe.iccd.ecard.bean.Card;
+import com.ftsafe.iccd.ecard.ui.activities.LoadActivity;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -37,118 +38,115 @@ public class StandardLoad extends com.ftsafe.iccd.ecard.reader.pboc.StandardPboc
     }
 
     @Override
-    protected HINT readCard(Iso7816.StdTag tag, Card card) throws IOException {
+    protected HINT readCard(Iso7816.StdTag tag, Card card) throws IOException, ErrMessage {
         final ArrayList<Iso7816.ID> aids = getApplicationIds(tag);
-        try {
 
-            for (Iso7816.ID aid : aids) {
+        for (Iso7816.ID aid : aids) {
             /*--------------------------------------------------------------*/
-                // 应用选择
+            // 应用选择
             /*--------------------------------------------------------------*/
-                // SELECT
-                Iso7816.Response rsp = tag.selectByName(aid.getBytes());
-                if (rsp.isOkey() == false)
-                    continue;
-                Log.d(Config.APP_ID, "选择 " + aid + " 应用完成");
+            Log.d(Config.APP_ID, "选择应用");
+            // SELECT
+            Iso7816.Response rsp = tag.selectByName(aid.getBytes());
+            if (rsp.isOkey() == false)
+                continue;
+            // initial BerTLV
+            final Iso7816.BerHouse berHouse = new Iso7816.BerHouse();
+            // collect info
+            Iso7816.BerTLV.extractPrimitives(berHouse, rsp);
 
-                // initial BerTLV
-                final Iso7816.BerHouse berHouse = new Iso7816.BerHouse();
-                // 初始化终端交易参数
-                // 参数顺序：9F7A,9F66,9C,9F02,9F03,DF60,DF69
-                Terminal terminal = null;
+            Log.d(Config.APP_ID, "选择 " + aid + " 应用完成");
 
-                terminal = initTerminal();
+            // 初始化终端交易参数
+            // 参数顺序：9F7A,9F66,9C,9F02,9F03,DF60,DF69
+            Terminal terminal = null;
 
+            terminal = initTerminal();
+            Log.d(Config.APP_ID, "终端初始化完成");
+            /*--------------------------------------------------------------*/
+            // 应用初始化
+            /*--------------------------------------------------------------*/
+            Log.d(Config.APP_ID, "应用初始化");
+            // GPO
+            byte[] pdol = buildPDOL(berHouse, terminal);
 
-                // collect info
-                Iso7816.BerTLV.extractPrimitives(berHouse, rsp);
-                // GET DATA 9F38
-//            subTLVs.add(BerTLV.read(tag.getData((short) 0x9F36)));
-            /*--------------------------------------------------------------*/
-                // 应用初始化
-            /*--------------------------------------------------------------*/
-                // GPO
-                byte[] pdol = buildPDOL(berHouse, terminal);
+            Log.d(Config.APP_ID, "PDOL=" + Util.toHexString(pdol));
 
-                Log.e(Config.APP_ID, "PDOL=" + Util.toHexString(pdol));
+            rsp = tag.getProcessingOptions(pdol);
+            if (rsp.isOkey() == false)
+                throw new IOException("GPO失败");
 
-                rsp = tag.getProcessingOptions(pdol);
-                if (rsp.isOkey() == false)
-                    throw new IOException("GPO失败");
+            BerTLV.extractPrimitives(berHouse, rsp);
 
-                BerTLV.extractPrimitives(berHouse, rsp);
-
-                Log.d(Config.APP_ID, "GPO完成");
+            Log.d(Config.APP_ID, "GPO完成");
+            Log.d(Config.APP_ID, "应用初始化完成");
             /*--------------------------------------------------------------*/
-                // 读取应用数据
+            // 读取应用数据
             /*--------------------------------------------------------------*/
-                readApplicationRecord(tag, berHouse);
-                Log.d(Config.APP_ID, "读应用记录完成");
+            readApplicationRecord(tag, berHouse);
+            Log.d(Config.APP_ID, "读取应用记录完成");
             /*--------------------------------------------------------------*/
-                // 脱机数据认证
+            // 脱机数据认证
             /*--------------------------------------------------------------*/
-                offLineDataAuthenticate(tag, berHouse, terminal);
-
+            offLineDataAuthenticate(tag, berHouse, terminal);
+            Log.d(Config.APP_ID, "脱机数据认证完成");
             /*--------------------------------------------------------------*/
-                // 处理限制
+            // 处理限制
             /*--------------------------------------------------------------*/
-                processRestrict(berHouse, terminal);
-                Log.d(Config.APP_ID, "处理限制完成");
+            processRestrict(berHouse, terminal);
+            Log.d(Config.APP_ID, "处理限制完成");
             /*--------------------------------------------------------------*/
-                // 持卡人验证
+            // 持卡人验证
             /*--------------------------------------------------------------*/
-                cardHolderVerify(berHouse, terminal);
-                Log.d(Config.APP_ID, "持卡人验证完成");
+            cardHolderVerify(berHouse, terminal);
+            Log.d(Config.APP_ID, "持卡人验证完成");
             /*--------------------------------------------------------------*/
-                // 终端风险管理
+            // 终端风险管理
             /*--------------------------------------------------------------*/
-                rsp = termRiskManage(tag, berHouse, terminal);
-                if (!rsp.isOkey()) {
-                    throw new ErrMessage("终端风险管理异常响应:" + rsp.getSw12String());
-                }
-                Log.d(Config.APP_ID, "终端风险管理完成");
-            /*--------------------------------------------------------------*/
-                // 终端行为分析
-            /*--------------------------------------------------------------*/
-                int transType = termActionAnalyze(berHouse, terminal);
-
-                rsp = gacProcess(berHouse, terminal, tag, GAC_1, transType);
-                if (!rsp.isOkey())
-                    throw new ErrMessage("GAC异常响应:" + rsp.getSw12String());
-                BerTLV.extractPrimitives(berHouse, rsp);
-                Log.d(Config.APP_ID, "终端行为分析完成");
-
-            /*--------------------------------------------------------------*/
-                // 联机交易
-            /*--------------------------------------------------------------*/
-                transType = onLineProcess(berHouse, terminal, rsp);
-                if (transType == TRANS_ONLINE) {
-                    // ON LINE
-                } else if (transType == TRANS_OFFLINE) {
-                    // 脱机
-
-                } else if (transType == TRANS_DENIAL) {
-                    // 脱机拒绝
-                } else {
-                    // nothing done
-                }
-            /*--------------------------------------------------------------*/
-                // GENERATE AC
-            /*--------------------------------------------------------------*/
-
-            /*--------------------------------------------------------------*/
-                // PUT DATA 9F79
-            /*--------------------------------------------------------------*/
-
-
+            rsp = termRiskManage(tag, berHouse, terminal);
+            if (!rsp.isOkey()) {
+                throw new ErrMessage("终端风险管理异常响应:" + rsp.getSw12String());
             }
-        } catch (ErrMessage errMessage) {
-            errMessage.printStackTrace();
+            Log.d(Config.APP_ID, "终端风险管理完成");
+            /*--------------------------------------------------------------*/
+            // 终端行为分析
+            /*--------------------------------------------------------------*/
+            int transType = termActionAnalyze(berHouse, terminal);
+
+            rsp = gacProcess(berHouse, terminal, tag, GAC_1, transType);
+            if (!rsp.isOkey())
+                throw new ErrMessage("GAC异常响应:" + rsp.getSw12String());
+            BerTLV.extractPrimitives(berHouse, rsp);
+            Log.d(Config.APP_ID, "终端行为分析完成");
+            /*--------------------------------------------------------------*/
+            // 联机交易
+            /*--------------------------------------------------------------*/
+            transType = onLineProcess(berHouse, terminal, rsp);
+            if (transType == TRANS_ONLINE) {
+                // ON LINE
+            } else if (transType == TRANS_OFFLINE) {
+                // 脱机
+
+            } else if (transType == TRANS_DENIAL) {
+                // 脱机拒绝
+            } else {
+                // nothing done
+            }
+            Log.d(Config.APP_ID, "联机交易完成");
+            /*--------------------------------------------------------------*/
+            // GENERATE AC
+            /*--------------------------------------------------------------*/
+
+            /*--------------------------------------------------------------*/
+            // PUT DATA 9F79
+            /*--------------------------------------------------------------*/
+
+
         }
         return card.isUnknownCard() ? HINT.RESETANDGONEXT : HINT.STOP;
     }
 
-    public static String amt;
+    public static String amt = LoadActivity.AMT;
 
     @NonNull
     private Terminal initTerminal() throws ErrMessage {

@@ -7,7 +7,6 @@ import com.ftsafe.iccd.ecard.SPEC;
 import com.ftsafe.iccd.ecard.Terminal;
 import com.ftsafe.iccd.ecard.bean.Application;
 import com.ftsafe.iccd.ecard.bean.Card;
-import com.ftsafe.iccd.ecard.bean.CardInfo;
 import com.ftsafe.iccd.ecard.bean.TerminalInfo;
 import com.ftsafe.iccd.ecard.pojo.PbocTag;
 
@@ -38,64 +37,79 @@ public abstract class StandardPboc {
 
     public static void readCard(Reader reader, Card card) throws Exception {
 
-        Iso7816.StdTag tag = new Iso7816.StdTag(reader);
+        try {
+            if (reader == null || card == null)
+                return;
 
-        reader.powerOn();
+            reader.powerOn();
 
-        for (final Class<?> g[] : applets) {
-            HINT hint = HINT.RESETANDGONEXT;
+            Iso7816.StdTag tag = new Iso7816.StdTag(reader);
 
-            for (final Class<?> r : g) {
 
-                final StandardPboc app = (StandardPboc) r.newInstance();
+            for (final Class<?> g[] : applets) {
+                HINT hint = HINT.RESETANDGONEXT;
 
-                switch (hint) {
+                for (final Class<?> r : g) {
 
-                    case RESETANDGONEXT:
-                        if (app.reset(tag) == false)
-                            continue;
+                    final StandardPboc app = (StandardPboc) r.newInstance();
 
-                    case GONEXT:
-                        hint = app.readCard(tag, card);
-                        break;
+                    switch (hint) {
 
-                    default:
+                        case RESETANDGONEXT:
+                            if (app.reset(tag) == false)
+                                continue;
+
+                        case GONEXT:
+                            hint = app.readCard(tag, card);
+                            break;
+
+                        default:
+                            break;
+                    }
+
+                    if (hint == HINT.STOP)
                         break;
                 }
-
-                if (hint == HINT.STOP)
-                    break;
             }
+            reader.powerOff();
+        } catch (ErrMessage errMessage) {
+            reader.powerOff();
+            throw errMessage;
         }
-        reader.powerOff();
     }
 
-    public static void readCard(Reader reader, Class<?> r, Card card) throws Exception {
-        if (reader == null || r == null)
-            return;
+    public static void readCard(Reader reader, Class<?> cls, Card card) throws Exception {
+        try {
+            if (reader == null || cls == null)
+                return;
 
-        Iso7816.StdTag stdApplet = new Iso7816.StdTag(reader);
-        // 卡片上电
-        reader.powerOn();
+            Iso7816.StdTag stdApplet = new Iso7816.StdTag(reader);
+            // 卡片上电
+            reader.powerOn();
 
-        final StandardPboc app = (StandardPboc) r.newInstance();
+            final StandardPboc app = (StandardPboc) cls.newInstance();
 
-        HINT hint = HINT.RESETANDGONEXT;
-        switch (hint) {
+            HINT hint = HINT.RESETANDGONEXT;
+            switch (hint) {
 
-            case RESETANDGONEXT:
-                if (app.reset(stdApplet) == false)
+                case RESETANDGONEXT:
+                    if (app.reset(stdApplet) == false)
+                        break;
+                case GONEXT:
+                    hint = app.readCard(stdApplet, card);
                     break;
-            case GONEXT:
-                hint = app.readCard(stdApplet, card);
-                break;
 
-            default:
-                break;
+                default:
+                    break;
+            }
+
+            // 卡片下电
+            reader.powerOff();
+        } catch (ErrMessage errMessage) {
+            // 卡片下电
+            reader.powerOff();
+            throw errMessage;
         }
-
-        // 卡片下电
-        reader.powerOff();
     }
 
     protected enum HINT {
@@ -138,7 +152,7 @@ public abstract class StandardPboc {
         return stdLay.selectByID(DFI_MF).isOkey() || stdLay.selectByName(DFN_PSE).isOkey();
     }
 
-    protected HINT readCard(Iso7816.StdTag tag, Card card) throws IOException {
+    protected HINT readCard(Iso7816.StdTag tag, Card card) throws IOException, ErrMessage {
 
 		/*--------------------------------------------------------------*/
         // select Main Application
@@ -374,15 +388,17 @@ public abstract class StandardPboc {
         return Arrays.copyOfRange(buff.array(), 0, buff.position());
     }
 
-    private byte[] buildDOL(byte[] dol, Iso7816.BerHouse berHouse) throws ErrMessage {
+    private byte[] buildDOL(byte[] dol, Terminal terminal) throws ErrMessage {
         final ByteBuffer buff = ByteBuffer.allocate(252);
         ArrayList<Iso7816.BerTLV> list = Iso7816.BerTLV.extractOptionList(dol);
         for (Iso7816.BerTLV tlv : list) {
             final Iso7816.BerT tag = tlv.t;
             final int len = tlv.l.toInt();
-            final Iso7816.BerTLV berTLV = berHouse.findFirst(tag);
-            if (berTLV != null) {
-                buildPDO(buff, len, berTLV.v.getBytes());
+            final byte[] value = terminal.getValue(tag.getBytes());
+            Log.e(Config.APP_ID,"Tag="+Util.toHexString(tag.getBytes())+",Value="+Util.toHexString(value));
+            if (value != null) {
+                Log.e(Config.APP_ID,"Tag="+Util.toHexString(tag.getBytes())+",Value="+Util.toHexString(value));
+                buildPDO(buff, len, value);
             }
         }
         // 更新数据长度
@@ -454,11 +470,13 @@ public abstract class StandardPboc {
                 // 计算SFI
                 /*------------------------*/
                 int length = topTlv80.length();
-                Log.e(Config.APP_ID, "80模板长度=" + length);
+                Log.d(Config.APP_ID, "80模板长度=" + length);
                 byte[] tmp = topTlv80.v.getBytes();
                 aip = Arrays.copyOfRange(tmp, 0, 2);
                 afl = Arrays.copyOfRange(tmp, 2, length);
-                Log.e(Config.APP_ID, "aip=" + Util.toHexString(aip) + ",afl=" + Util.toHexString(afl));
+                berHouse.add(new Iso7816.BerT(PbocTag.APP_INTERCHANGE_PROFILE), aip);
+                berHouse.add(new Iso7816.BerT(PbocTag.APP_FILE_LOCATOR), afl);
+                Log.d(Config.APP_ID, "aip=" + Util.toHexString(aip) + ",afl=" + Util.toHexString(afl));
                 /*------------------------*/
                 // RREAD RECORD
                 /*------------------------*/
@@ -470,9 +488,9 @@ public abstract class StandardPboc {
                     nums = Util.BCDtoInt(tmp[1]);
                     nume = Util.BCDtoInt(tmp[2]);
                     flag = Util.BCDtoInt(tmp[3]);
-                    Log.e(Config.APP_ID, "sfi=" + sfi + ",nums=" + nums + ",nume=" + nume + ",flag=" + flag);
+                    Log.d(Config.APP_ID, "sfi=" + sfi + ",nums=" + nums + ",nume=" + nume + ",flag=" + flag);
                     for (int j = nums; j <= nume; j++) {
-                        Log.e(Config.APP_ID, "读记录:SFI=" + sfi + ",NUM=" + j);
+                        Log.d(Config.APP_ID, "读记录:SFI=" + sfi + ",NUM=" + j);
 
                         Iso7816.Response r = tag.readRecord(sfi, j);
                         if (r.isOkey())
@@ -498,13 +516,13 @@ public abstract class StandardPboc {
         if (DDOLTLV == null)//ICC has no DDOL,tag:9F49
         {
             if (terminal.getTermDDOL() != null)
-                ddol = buildDOL(terminal.getTermDDOL(), berHouse);
+                ddol = buildDOL(terminal.getTermDDOL(), terminal);
 
             else
                 return ErrCode.ERR_EMV_NoTermDDOL;//Terminal has also no DDOL
 
         } else {
-            ddol = buildDOL(DDOLTLV.v.getBytes(), berHouse);
+            ddol = buildDOL(DDOLTLV.v.getBytes(), terminal);
         }
         if (ddol == null) {
             throw new ErrMessage("内部认证:构建DDOL失败");
@@ -533,11 +551,17 @@ public abstract class StandardPboc {
     protected int offLineDataAuthenticate(Iso7816.StdTag tag, Iso7816.BerHouse berHouse, Terminal terminal) throws IOException, ErrMessage {
         Log.d(Config.APP_ID, "脱机数据认证");
         int lr;
-        byte[] AIP = berHouse.findFirst(PbocTag.APP_INTERCHANGE_PROFILE).v.getBytes();
+        Iso7816.BerTLV aipTlv = berHouse.findFirst(PbocTag.APP_INTERCHANGE_PROFILE);
+        if (aipTlv == null)
+            throw new ErrMessage("没有AIP");
+        byte[] termCapab = terminal.getTermCapab();
+        if (termCapab == null)
+            throw new ErrMessage("终端性能参数为空");
+        byte[] AIP = aipTlv.v.getBytes();
         Calendar cal = Calendar.getInstance();
-        if ((AIP[0] & 0x01) != 0 && (terminal.getTermCapab()[2] & 0x08) != 0) {
+        if ((AIP[0] & 0x01) != 0 && (termCapab[2] & 0x08) != 0) {
             //ICC and terminal support Combined DDA/AC.(EMV2000 & Bulletin No9, March 2002)
-            String tmp = String.format("%02d:%02d:%02d开始执行CDA!", cal.get(Calendar.HOUR), cal.get(Calendar.MINUTE), cal.get(Calendar.SECOND));
+            String tmp = String.format("%02d:%02d:%02d 开始执行CDA", cal.get(Calendar.HOUR_OF_DAY), cal.get(Calendar.MINUTE), cal.get(Calendar.SECOND));
             Log.d(Config.APP_ID, tmp);
 
             byte[] ICCAPKI = berHouse.findFirst(PbocTag.CAPKI).v.getBytes();
@@ -562,9 +586,9 @@ public abstract class StandardPboc {
                 terminal.orTVR(0, (byte) 0x20);
 
 
-        } else if ((AIP[0] & 0x20) != 0 && (terminal.getTermCapab()[2] & 0x40) != 0) {
+        } else if ((AIP[0] & 0x20) != 0 && (termCapab[2] & 0x40) != 0) {
             //ICC and terminal support dynamic data auth.
-            String tmp = String.format("%02d:%02d:%02d开始执行DDA!", cal.get(Calendar.HOUR), cal.get(Calendar.MINUTE), cal.get(Calendar.SECOND));
+            String tmp = String.format("%02d:%02d:%02d 开始执行DDA", cal.get(Calendar.HOUR_OF_DAY), cal.get(Calendar.MINUTE), cal.get(Calendar.SECOND));
             Log.d(Config.APP_ID, tmp);
             Iso7816.BerTLV SignDynAppData = berHouse.findFirst(PbocTag.SIGN_DYN_APP_DATA);
             if (SignDynAppData == null) {
@@ -592,7 +616,7 @@ public abstract class StandardPboc {
                 }
                 lr = 1;
                 if (lr != 0) {
-                    Log.d(Config.APP_ID, "脱机DDA认证失败!");
+                    Log.d(Config.APP_ID, "脱机DDA认证失败");
                     terminal.orTVR(0, (byte) 0x08);            //Offline dynamic Data Authentication failed
                     terminal.orTSI(0, (byte) 0x80);          //Offline Data Authentication was performed
                 }
@@ -604,7 +628,7 @@ public abstract class StandardPboc {
 
         } else if ((AIP[0] & 0x40) != 0 && (terminal.getTermCapab()[2] & 0x80) != 0) {
             //ICC and terminal support static data auth.
-            String tmp = String.format("%02d:%02d:%02d开始执行SDA!", cal.get(Calendar.HOUR), cal.get(Calendar.MINUTE), cal.get(Calendar.SECOND));
+            String tmp = String.format("%02d:%02d:%02d 开始执行SDA", cal.get(Calendar.HOUR_OF_DAY), cal.get(Calendar.MINUTE), cal.get(Calendar.SECOND));
             Log.d(Config.APP_ID, tmp);
             byte[] ICCAPKI = berHouse.findFirst(PbocTag.CAPKI).v.getBytes();
             byte[] IPK_CERT = berHouse.findFirst(PbocTag.IPK_CERT).v.getBytes();
@@ -623,7 +647,7 @@ public abstract class StandardPboc {
 
         } else {
             //The bit should be set to 1 according to test script 2CI.023.00
-            String tmp = String.format("%02d:%02d:%02d,交易未执行脱机数据认证!", cal.get(Calendar.HOUR), cal.get(Calendar.MINUTE), cal.get(Calendar.SECOND));
+            String tmp = String.format("%02d:%02d:%02d,交易未执行脱机数据认证", cal.get(Calendar.HOUR_OF_DAY), cal.get(Calendar.MINUTE), cal.get(Calendar.SECOND));
             Log.d(Config.APP_ID, tmp);
             terminal.orTVR(0, (byte) 0x80);            //Offline Data Authentication not performed
             terminal.orTSI(0, (byte) 0x7F);            //set bit 'Offline data authentication was performed' bit 0.
@@ -916,7 +940,7 @@ public abstract class StandardPboc {
      * 持卡人验证
      * GET DATA命令/响应，VERIFY命令/响应
      */
-    protected long cardHolderVerify(Iso7816.BerHouse berHouse, Terminal terminal) {
+    protected long cardHolderVerify(Iso7816.BerHouse berHouse, Terminal terminal) throws ErrMessage {
         Log.d(Config.APP_ID, "持卡人验证");
         long lr;
         int i;
@@ -933,13 +957,15 @@ public abstract class StandardPboc {
 
         //get cvm list in the card, if not available, return
         berTLV = berHouse.findFirst(PbocTag.CVM_LIST);
-        byte[] CCVMList = berTLV.v.getBytes();
-        int CCVMListLen = berTLV.length(); // 从卡片获取的CVMList长度
+//        if (berTLV == null)
+//            throw new ErrMessage("CVM List为空");
         if (berTLV == null)//CVM List is absent.
         {
             terminal.orTVR(0, (byte) 0x20);//ICC Data Missing.
             return 0;
         }
+        byte[] CCVMList = berTLV.v.getBytes();
+        int CCVMListLen = berTLV.length(); // 从卡片获取的CVMList长度
 
         if (CCVMListLen < 10) {
             terminal.orTSI(0, (byte) 0x40);
@@ -966,24 +992,26 @@ public abstract class StandardPboc {
             lAmtOtherBin = Util.BCDtoInt(terminal.getAmtOtherBin(), 0, 4);
 
         int CVMListLen = (CCVMListLen - 8) / 2;
-        //ArrayList<CVM> CVMList = new ArrayList<>();
-        CVM[] CVMList = new CVM[64];
+//        ArrayList<CVM> CVMs = new ArrayList<>(64);
+        CVM[] CVMs = new CVM[64];
         for (i = 0; i != CVMListLen; i++) {
-            CVMList[i].method = CCVMList[i * 2 + 8];
-            CVMList[i].condition = CCVMList[i * 2 + 9];
+            CVM cvm = new CVM();
+            cvm.method = CCVMList[i * 2 + 8];
+            cvm.condition = CCVMList[i * 2 + 9];
+            CVMs[i] = cvm;
         }
 
         byte[] transCurcyCode = terminal.getTransCurcyCode();
         byte[] cTransCurcyCode = berHouse.findFirst(PbocTag.APP_CURRENCY_CODE).v.getBytes();
         for (i = 0; i != CVMListLen; i++) {
-            switch (CVMList[i].condition) {
+            switch (CVMs[i].condition) {
                 case 0x00://always
-                    lr = emvPerformCVM(CVMList[i], terminal);
+                    lr = emvPerformCVM(CVMs[i], terminal);
                     if (lr == 0) {
                         terminal.orTSI(0, (byte) 0x40);
                         return 0;
                     } else {
-                        if ((CVMList[i].method & 0x40) == 0x00) {
+                        if ((CVMs[i].method & 0x40) == 0x00) {
                             terminal.orTSI(0, (byte) 0x40);
                             terminal.orTVR(2, (byte) 0x80);
                             return 0;
@@ -996,12 +1024,12 @@ public abstract class StandardPboc {
                     break;
                 case 0x01://if cash or cashback(EMV2000)－> if unattended cash(modified in EMV4.1,SU16)
                     if (terminal.getTransType() == TERM_TRANS_CASH && (terminal.getTermType() & 0x0F) > 3) {
-                        lr = emvPerformCVM(CVMList[i], terminal);
+                        lr = emvPerformCVM(CVMs[i], terminal);
                         if (lr == 0) {
                             terminal.orTSI(0, (byte) 0x40);
                             return 0;
                         } else {
-                            if ((CVMList[i].method & 0x40) == 0x00) {
+                            if ((CVMs[i].method & 0x40) == 0x00) {
                                 terminal.orTSI(0, (byte) 0x40);
                                 terminal.orTVR(2, (byte) 0x80);
                                 return 0;
@@ -1017,12 +1045,12 @@ public abstract class StandardPboc {
                     if (terminal.getTransType() != TERM_TRANS_CASH
                             && terminal.getTransType() != TERM_TRANS_CASHBACK
                             && lAmtOtherBin == 0) {
-                        lr = emvPerformCVM(CVMList[i], terminal);
+                        lr = emvPerformCVM(CVMs[i], terminal);
                         if (lr == 0) {
                             terminal.orTSI(0, (byte) 0x40);
                             return 0;
                         } else {
-                            if ((CVMList[i].method & 0x40) == 0x00) {
+                            if ((CVMs[i].method & 0x40) == 0x00) {
                                 terminal.orTSI(0, (byte) 0x40);
                                 terminal.orTVR(2, (byte) 0x80);
                                 return 0;
@@ -1037,12 +1065,12 @@ public abstract class StandardPboc {
                 case 0x03://if terminal support CVM
                     //if((m_TermInfo.TermCapab[1]&0xF0)!=0x00)//In fact this should be judged for each CVM.
                     //{
-                    lr = emvPerformCVM(CVMList[i], terminal);
+                    lr = emvPerformCVM(CVMs[i], terminal);
                     if (lr == 0) {
                         terminal.orTSI(0, (byte) 0x40);
                         return 0;
                     } else {
-                        if ((CVMList[i].method & 0x40) == 0x00) {
+                        if ((CVMs[i].method & 0x40) == 0x00) {
                             terminal.orTSI(0, (byte) 0x40);
                             terminal.orTVR(2, (byte) 0x80);
                             return 0;
@@ -1056,12 +1084,12 @@ public abstract class StandardPboc {
                     break;
                 case 0x04://if manual cash (added in EMV4.1,SU16)
                     if (terminal.getTransType() == TERM_TRANS_CASH && (terminal.getTermType() & 0x0F) <= 3) {
-                        lr = emvPerformCVM(CVMList[i], terminal);
+                        lr = emvPerformCVM(CVMs[i], terminal);
                         if (lr == 0) {
                             terminal.orTSI(0, (byte) 0x40);
                             return 0;
                         } else {
-                            if ((CVMList[i].method & 0x40) == 0x00) {
+                            if ((CVMs[i].method & 0x40) == 0x00) {
                                 terminal.orTSI(0, (byte) 0x40);
                                 terminal.orTVR(2, (byte) 0x80);
                                 return 0;
@@ -1075,12 +1103,12 @@ public abstract class StandardPboc {
                     break;
                 case 0x05://if purchase with cashback (added in EMV4.1,SU16)
                     if (terminal.getTransType() == TERM_TRANS_CASHBACK || lAmtOtherBin == 0) {
-                        lr = emvPerformCVM(CVMList[i], terminal);
+                        lr = emvPerformCVM(CVMs[i], terminal);
                         if (lr == 0) {
                             terminal.orTSI(0, (byte) 0x40);
                             return 0;
                         } else {
-                            if ((CVMList[i].method & 0x40) == 0x00) {
+                            if ((CVMs[i].method & 0x40) == 0x00) {
                                 terminal.orTSI(0, (byte) 0x40);
                                 terminal.orTVR(2, (byte) 0x80);
                                 return 0;
@@ -1102,12 +1130,12 @@ public abstract class StandardPboc {
                     if (Arrays.equals(transCurcyCode, cTransCurcyCode) &&
                             lAmtAuthBin < CVM_X)//under x shouldn't include case of equal x.(EMV2000 2CJ.077.02)
                     {
-                        lr = emvPerformCVM(CVMList[i], terminal);
+                        lr = emvPerformCVM(CVMs[i], terminal);
                         if (lr == 0) {
                             terminal.orTSI(0, (byte) 0x40);
                             return 0;
                         } else {
-                            if ((CVMList[i].method & 0x40) == 0x00) {
+                            if ((CVMs[i].method & 0x40) == 0x00) {
                                 terminal.orTSI(0, (byte) 0x40);
                                 terminal.orTVR(2, (byte) 0x80);
                                 return 0;
@@ -1128,12 +1156,12 @@ public abstract class StandardPboc {
                     }
                     if (Arrays.equals(transCurcyCode, cTransCurcyCode) &&
                             lAmtAuthBin > CVM_X) {
-                        lr = emvPerformCVM(CVMList[i], terminal);
+                        lr = emvPerformCVM(CVMs[i], terminal);
                         if (lr == 0) {
                             terminal.orTSI(0, (byte) 0x40);
                             return 0;
                         } else {
-                            if ((CVMList[i].method & 0x40) == 0x00) {
+                            if ((CVMs[i].method & 0x40) == 0x00) {
                                 terminal.orTSI(0, (byte) 0x40);
                                 terminal.orTVR(2, (byte) 0x80);
                                 return 0;
@@ -1153,12 +1181,12 @@ public abstract class StandardPboc {
                     }
                     if (Arrays.equals(transCurcyCode, cTransCurcyCode) &&
                             lAmtAuthBin < CVM_Y) {
-                        lr = emvPerformCVM(CVMList[i], terminal);
+                        lr = emvPerformCVM(CVMs[i], terminal);
                         if (lr == 0) {
                             terminal.orTSI(0, (byte) 0x40);
                             return 0;
                         } else {
-                            if ((CVMList[i].method & 0x40) == 0x00) {
+                            if ((CVMs[i].method & 0x40) == 0x00) {
                                 terminal.orTSI(0, (byte) 0x40);
                                 terminal.orTVR(2, (byte) 0x80);
                                 return 0;
@@ -1178,12 +1206,12 @@ public abstract class StandardPboc {
                     }
                     if (Arrays.equals(transCurcyCode, cTransCurcyCode) &&
                             lAmtAuthBin > CVM_Y) {
-                        lr = emvPerformCVM(CVMList[i], terminal);
+                        lr = emvPerformCVM(CVMs[i], terminal);
                         if (lr == 0) {
                             terminal.orTSI(0, (byte) 0x40);
                             return 0;
                         } else {
-                            if ((CVMList[i].method & 0x40) == 0x00) {
+                            if ((CVMs[i].method & 0x40) == 0x00) {
                                 terminal.orTSI(0, (byte) 0x40);
                                 terminal.orTVR(2, (byte) 0x80);
                                 return 0;
@@ -1214,10 +1242,6 @@ public abstract class StandardPboc {
     protected Iso7816.Response termRiskManage(Iso7816.StdTag tag, Iso7816.BerHouse berHouse, Terminal terminal) {
         Log.d(Config.APP_ID, "终端风险管理");
         //CheckExceptionFile
-        int nDataLen;
-        //int i;
-        byte[] ucData = new byte[300];
-//        long lr;
 
 // 	for(i=0; i < TermExceptionFileNum; i++)
 // 	{
@@ -1345,7 +1369,7 @@ public abstract class StandardPboc {
      * 终端行为分析
      * GENERATE AC命令
      */
-    protected int termActionAnalyze(Iso7816.BerHouse berHouse, Terminal terminal) {
+    protected int termActionAnalyze(Iso7816.BerHouse berHouse, Terminal terminal) throws ErrMessage {
         Log.d(Config.APP_ID, "终端行为分析");
         int i, k;//TermAnaResult,CardAnaResult;//0-Denial,1-Online,2-Offline
         boolean bFitIAC = false, bFitTAC = false;
@@ -1359,19 +1383,19 @@ public abstract class StandardPboc {
         if (berHouse.findFirst(PbocTag.IAC_DENIAL) == null) {
             //IAC-denial not exist
 //            memset(m_CardInfo.IACDenial, 0, 5);
-            berHouse.add(PbocTag.IAC_DENIAL, new byte[]{0, 0, 0, 0, 0});
+            berHouse.add(new Iso7816.BerT(PbocTag.IAC_DENIAL), new byte[]{0, 0, 0, 0, 0});
         }
 //        if (m_CardDataTable[ICC_Index_IACOnline].bExist == 0) {
         if (berHouse.findFirst(PbocTag.IAC_ONLINE) == null) {
             //IAC-online not exist
 //            memset(m_CardInfo.IACOnline, 0xFF, 5);
-            berHouse.add(PbocTag.IAC_ONLINE, new byte[]{(byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF});
+            berHouse.add(new Iso7816.BerT(PbocTag.IAC_ONLINE), new byte[]{(byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF});
         }
 //        if (m_CardDataTable[ICC_Index_IACDefault].bExist == 0) {
         if (berHouse.findFirst(PbocTag.IAC_DEFAULT) == null) {
             //IAC-default not exist
 //            memset(m_CardInfo.IACDefault, 0xFF, 5);
-            berHouse.add(PbocTag.IAC_DEFAULT, new byte[]{(byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF});
+            berHouse.add(new Iso7816.BerT(PbocTag.IAC_DEFAULT), new byte[]{(byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF});
         }
 
 //        if (m_TermDataTable[TERM_Index_TACDenial].bExist == 0) {
@@ -1399,9 +1423,16 @@ public abstract class StandardPboc {
             return TRANS_OFFLINE;
         }
 
-        byte[] IACDenial = berHouse.findFirst(PbocTag.IAC_DENIAL).v.getBytes();
+        Iso7816.BerTLV IACTlv = berHouse.findFirst(PbocTag.IAC_DENIAL);
+        if (IACTlv == null)
+            throw new ErrMessage("IAC_DENIAL为空");
+        byte[] IACDenial = IACTlv.v.getBytes();
         for (i = 0; i < 5; i++) {
-            k = terminal.getTVR()[i];
+            byte[] tvr = terminal.getTVR();
+            if (tvr == null) {
+                throw new ErrMessage("终端验证结果为空");
+            }
+            k = tvr[i];
 //            if ((k & m_CardInfo.IACDenial[i]) != 0)
             if ((k & IACDenial[i]) != 0)
                 bFitIAC = true;
@@ -1531,18 +1562,20 @@ public abstract class StandardPboc {
         byte[] cdol;
         // CDOL
         if (gacType == GAC_1) {
-            cdol = buildDOL(CDOL1, berHouse);
-
+            cdol = buildDOL(CDOL1, terminal);
         } else if (gacType == GAC_2) {
-            cdol = buildDOL(CDOL2, berHouse);
+            cdol = buildDOL(CDOL2, terminal);
         } else
             throw new ErrMessage("GENERATE AC:错误的GAC类型");
+
+        if (cdol == null)
+            throw new ErrMessage("CDOL为空");
 
         // 发送GAC命令
         Iso7816.Response r = tag.generateAC(p1, cdol);
         if (!r.isOkey())
             throw new ErrMessage("GENETATE AC:第" + gacType +
-                    "次GAC 错误响应码" + r.getSw12String());
+                    "次GAC 错误响应码" + r.getSw12String() + ",P1=" + Util.toHexString(p1) + ",CDOL=" + Util.toHexString(cdol));
         return r;
     }
 

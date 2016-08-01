@@ -653,6 +653,10 @@ public class Iso7816 {
             return new Response(transceive(buff.array()));
         }
 
+        public Response sendAPDU(byte[] apdu) throws IOException {
+            return new Response(transceive(apdu));
+        }
+
         public void powerOn() throws Exception {
             reader.powerOn();
         }

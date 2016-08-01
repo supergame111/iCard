@@ -395,9 +395,8 @@ public abstract class StandardPboc {
             final Iso7816.BerT tag = tlv.t;
             final int len = tlv.l.toInt();
             final byte[] value = terminal.getValue(tag.getBytes());
-            Log.e(Config.APP_ID,"Tag="+Util.toHexString(tag.getBytes())+",Value="+Util.toHexString(value));
+            Log.e(Config.APP_ID, "Tag=" + Util.toHexString(tag.getBytes()) + ",Value=" + Util.toHexString(value));
             if (value != null) {
-                Log.e(Config.APP_ID,"Tag="+Util.toHexString(tag.getBytes())+",Value="+Util.toHexString(value));
                 buildPDO(buff, len, value);
             }
         }
@@ -1651,27 +1650,27 @@ public abstract class StandardPboc {
         Log.d(Config.APP_ID, "联机处理");
         byte[] gacresp = resp.getBytes();
         int len = Util.toInt(gacresp[1]);
-        if (gacresp[0] == 0x80) {
+        if (gacresp[0] == (byte) 0x80) {
             byte[] ucPrimData = new byte[0];
             if (len == gacresp.length - 2)
                 ucPrimData = Arrays.copyOfRange(resp.getBytes(), 2, len);
 
-            berHouse.add(PbocTag.CRYPTOGRAM_INFO, new byte[]{ucPrimData[0]});
-            berHouse.add(PbocTag.ATC, Arrays.copyOfRange(ucPrimData, 1, 3));
-            berHouse.add(PbocTag.APP_CRYPTOGRAM, Arrays.copyOfRange(ucPrimData, 3, 11));
-            berHouse.add(PbocTag.ISSUER_APP_DATA, Arrays.copyOfRange(ucPrimData, 11, len - 2));
+            berHouse.add(new Iso7816.BerT(PbocTag.CRYPTOGRAM_INFO), new byte[]{ucPrimData[0]});
+            berHouse.add(new Iso7816.BerT(PbocTag.ATC), Arrays.copyOfRange(ucPrimData, 1, 3));
+            berHouse.add(new Iso7816.BerT(PbocTag.APP_CRYPTOGRAM), Arrays.copyOfRange(ucPrimData, 3, 11));
+            berHouse.add(new Iso7816.BerT(PbocTag.ISSUER_APP_DATA), Arrays.copyOfRange(ucPrimData, 11, len - 2));
 
-        } else if (gacresp[0] == 0x77) {
+        } else if (gacresp[0] == (byte) 0x77) {
             parseData(resp.getBytes(), berHouse, GAC_1);
         } else
-            throw new ErrMessage("联机处理:错误的GAC响应数据:" + Util.toHexString(gacresp[0]));
+            throw new ErrMessage("联机处理:错误的GAC响应数据:" + Util.toHexString(gacresp));
 
         byte cryptInfo = berHouse.findFirst(PbocTag.CRYPTOGRAM_INFO).v.getBytes()[0];
-
         byte[] AIP = berHouse.findFirst(PbocTag.APP_INTERCHANGE_PROFILE).v.getBytes();
-        byte[] signDynAppData = berHouse.findFirst(PbocTag.SIGN_DYN_APP_DATA).v.getBytes();
+        Iso7816.BerTLV signDynAppDataTlv = berHouse.findFirst(PbocTag.SIGN_DYN_APP_DATA);
         if ((cryptInfo & 0x80) == 0x80) {
-            if ((AIP[0] & 0x01) != 0 && (terminal.getTermCapab()[2] & 0x08) != 0 && signDynAppData != null) {
+            if ((AIP[0] & 0x01) != 0 && (terminal.getTermCapab()[2] & 0x08) != 0 && signDynAppDataTlv != null) {
+                byte[] signDynAppData = signDynAppDataTlv.v.getBytes();
                 if (isCardSMSupported && (terminal.getSMAlgSupp() == 0x01)) {
                     // 复合动态数据认证（国密）
 //                    lr = EMV_SM2CombineDDA(0);
@@ -1691,7 +1690,8 @@ public abstract class StandardPboc {
 
         } else if ((cryptInfo & 0x40) == 0x40) {
 
-            if ((AIP[0] & 0x01) != 0 && (terminal.getTermCapab()[2] & 0x08) != 0 && signDynAppData != null) {
+            if ((AIP[0] & 0x01) != 0 && (terminal.getTermCapab()[2] & 0x08) != 0 && signDynAppDataTlv != null) {
+                byte[] signDynAppData = signDynAppDataTlv.v.getBytes();
                 if (isCardSMSupported && (terminal.getSMAlgSupp() == 0x01)) {
 //                    lr = EMV_SM2CombineDDA(0);
                 } else {

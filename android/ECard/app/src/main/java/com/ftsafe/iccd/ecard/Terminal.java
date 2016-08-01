@@ -293,6 +293,7 @@ public class Terminal {
 
     public void setTransType(byte transType) {
         this.transType = transType;
+        setValue(TransType,transType);
     }
 
     //for distinguish different trans types such as goods and service.
@@ -304,7 +305,6 @@ public class Terminal {
 
     public void setTransTypeValue(byte transTypeValue) {
         this.transTypeValue = transTypeValue;
-        setValue(TransTypeValue, transTypeValue);
     }
 
     //20
@@ -747,7 +747,6 @@ public class Terminal {
     public static final Short TACDenial = (short) 0x1F01;
     public static final Short TACOnline = (short) 0x1F02;
     public static final Short TACDefault = (short) 0x1F03;
-    public static final Short TransType = (short) 0x1F04;
     public static final Short VLPTACDenial = (short) 0x1F05;
     public static final Short VLPTACOnline = (short) 0x1F06;
     public static final Short VLPTACDefault = (short) 0x1F07;
@@ -781,7 +780,7 @@ public class Terminal {
     public static final Short PIN = (short) 0xFF99;
     public static final Short TransDate = (short) 0xFF9A;
     public static final Short TSI = (short) 0xFF9B;
-    public static final Short TransTypeValue = (short) 0xFF9C;
+    public static final Short TransType = (short) 0xFF9C;
     public static final Short AcquireID = (short) 0x9F01;
     public static final Short AmtAuthorNum = (short) 0x9F02;
     public static final Short AmtOtherNum = (short) 0x9F03;

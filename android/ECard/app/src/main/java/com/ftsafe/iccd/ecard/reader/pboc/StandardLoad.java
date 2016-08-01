@@ -116,6 +116,7 @@ public class StandardLoad extends com.ftsafe.iccd.ecard.reader.pboc.StandardPboc
             rsp = gacProcess(berHouse, terminal, tag, GAC_1, transType);
             if (!rsp.isOkey())
                 throw new ErrMessage("GAC异常响应:" + rsp.getSw12String());
+            Log.d(Config.APP_ID, "第" + GAC_1 + "GAC完成");
             BerTLV.extractPrimitives(berHouse, rsp);
             Log.d(Config.APP_ID, "终端行为分析完成");
             /*--------------------------------------------------------------*/
@@ -124,15 +125,17 @@ public class StandardLoad extends com.ftsafe.iccd.ecard.reader.pboc.StandardPboc
             transType = onLineProcess(berHouse, terminal, rsp);
             if (transType == TRANS_ONLINE) {
                 // ON LINE
+                Log.d(Config.APP_ID, "执行联机交易");
             } else if (transType == TRANS_OFFLINE) {
                 // 脱机
-
+                Log.d(Config.APP_ID, "执行脱机交易");
             } else if (transType == TRANS_DENIAL) {
                 // 脱机拒绝
+                Log.d(Config.APP_ID, "脱机拒绝");
             } else {
-                // nothing done
+                throw new ErrMessage("联机处理异常:" + transType);
             }
-            Log.d(Config.APP_ID, "联机交易完成");
+            Log.d(Config.APP_ID, "联机处理完成");
             /*--------------------------------------------------------------*/
             // GENERATE AC
             /*--------------------------------------------------------------*/

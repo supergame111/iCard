@@ -7,14 +7,23 @@ import com.ftsafe.iccd.ecard.SPEC;
 import com.ftsafe.iccd.ecard.Terminal;
 import com.ftsafe.iccd.ecard.bean.Application;
 import com.ftsafe.iccd.ecard.bean.Card;
-import com.ftsafe.iccd.ecard.pojo.ClientInfo;
+import com.ftsafe.iccd.ecard.bean.CardInfo;
+import com.ftsafe.iccd.ecard.bean.TerminalInfo;
 import com.ftsafe.iccd.ecard.pojo.PbocTag;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Calendar;
 
+import javax.crypto.BadPaddingException;
+import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.NoSuchPaddingException;
+
+import ftsafe.common.ErrMessage;
 import ftsafe.common.Util;
 import ftsafe.common.encryption.TripleDES;
 import ftsafe.reader.Reader;
@@ -356,12 +365,67 @@ public abstract class StandardPboc {
                     default:
                         throw null;
                 }
-            } // 更新数据长度
+            }
+            // 更新数据长度
             buff.put(1, (byte) (buff.position() - 2));
         } catch (Exception e) {
             buff.position(2);
         }
         return Arrays.copyOfRange(buff.array(), 0, buff.position());
+    }
+
+    private byte[] buildDOL(byte[] dol, Iso7816.BerHouse berHouse) throws ErrMessage {
+        final ByteBuffer buff = ByteBuffer.allocate(252);
+        ArrayList<Iso7816.BerTLV> list = Iso7816.BerTLV.extractOptionList(dol);
+        for (Iso7816.BerTLV tlv : list) {
+            final Iso7816.BerT tag = tlv.t;
+            final int len = tlv.l.toInt();
+            final Iso7816.BerTLV berTLV = berHouse.findFirst(tag);
+            if (berTLV != null) {
+                buildPDO(buff, len, berTLV.v.getBytes());
+            }
+        }
+        // 更新数据长度
+        buff.put(1, (byte) (buff.position() - 2));
+        return Arrays.copyOfRange(buff.array(), 0, buff.position());
+//
+//        int index = 0, nLen, outLen = 0;
+//        int nDOLLen = dol.length;
+//        byte[] ucTag;
+//        byte[] result = null;
+//        while (index < nDOLLen - 1) {
+//            ucTag = Arrays.copyOfRange(dol, index, 2);
+//            if ((ucTag[0] & 0x1F) != 0x1F) { //单字节Tag
+//
+//                nLen = ucTag[1];
+//                index += 2;
+//            } else { //双字节Tag
+//
+//                nLen = dol[index + 2];
+//                index += 3;
+//
+//                if (Arrays.equals(ucTag, new byte[]{(byte) 0xDF, (byte) 0x69}))
+//                    isCardSMSupported = true;
+//            }
+//            if (nLen == 0 || ucTag[0] == 0)
+//                continue;
+//
+//            Iso7816.BerTLV berTLV = berHouse.findFirst(ucTag);
+//            if (berTLV != null) {
+//                buildPDO(buff, len, terminal.getTermCappFlag());
+//                result = Arrays.copyOfRange(berTLV.v.getBytes(), outLen, outLen + berTLV.length());
+//                outLen += berTLV.length();
+//            } else
+//                outLen += nLen;
+//
+//            if (outLen > 252)
+//                throw new ErrMessage("长度超过限制" + outLen + "bytes");
+//
+//        }
+//        if (result != null)
+//            return result;
+//        else
+//            return Arrays.copyOf(new byte[]{0x00}, outLen);
     }
 
     protected Application createApplication() {
@@ -427,12 +491,145 @@ public abstract class StandardPboc {
         }
     }
 
+    int internalAuthen(Iso7816.StdTag tag, Iso7816.BerHouse berHouse, Terminal terminal) throws ErrMessage, IOException {
+        byte[] ddol;
+
+        Iso7816.BerTLV DDOLTLV = berHouse.findFirst(PbocTag.DDOL);
+        if (DDOLTLV == null)//ICC has no DDOL,tag:9F49
+        {
+            if (terminal.getTermDDOL() != null)
+                ddol = buildDOL(terminal.getTermDDOL(), berHouse);
+
+            else
+                return ErrCode.ERR_EMV_NoTermDDOL;//Terminal has also no DDOL
+
+        } else {
+            ddol = buildDOL(DDOLTLV.v.getBytes(), berHouse);
+        }
+        if (ddol == null) {
+            throw new ErrMessage("内部认证:构建DDOL失败");
+        }
+
+        Iso7816.Response r = tag.internalAuthenticate(ddol);
+        if (!r.isOkey()) {
+            throw new ErrMessage("内部认证:异常响应码" + r.getSw12String());
+        }
+
+        Iso7816.BerTLV tlv = Iso7816.BerTLV.read(r);
+        if (tlv.t.match(PbocTag.RESPONSE_TEMPLATE_80)) {
+            berHouse.add(PbocTag.SIGN_DYN_APP_DATA, tlv.v.getBytes());
+        } else if (tlv.t.match(PbocTag.RESPONSE_TEMPLATE_77)) {
+            parseData(tlv.v.getBytes(), berHouse, PARSE_DATA_COMMON);
+        } else
+            return ErrCode.ERR_EMV_InternalAuthRespData;
+
+        return 0;
+    }
+
     /**
      * 脱机数据认证
      * INTERNAL AUTHENTICATE命令/响应
      */
-    protected void offLineDataAuthenticate(boolean isDDA) {
+    protected int offLineDataAuthenticate(Iso7816.StdTag tag, Iso7816.BerHouse berHouse, Terminal terminal) throws IOException, ErrMessage {
         Log.d(Config.APP_ID, "脱机数据认证");
+        int lr;
+        byte[] AIP = berHouse.findFirst(PbocTag.APP_INTERCHANGE_PROFILE).v.getBytes();
+        Calendar cal = Calendar.getInstance();
+        if ((AIP[0] & 0x01) != 0 && (terminal.getTermCapab()[2] & 0x08) != 0) {
+            //ICC and terminal support Combined DDA/AC.(EMV2000 & Bulletin No9, March 2002)
+            String tmp = String.format("%02d:%02d:%02d开始执行CDA!", cal.get(Calendar.HOUR), cal.get(Calendar.MINUTE), cal.get(Calendar.SECOND));
+            Log.d(Config.APP_ID, tmp);
+
+            byte[] ICCAPKI = berHouse.findFirst(PbocTag.CAPKI).v.getBytes();
+            byte[] IPK_CERT = berHouse.findFirst(PbocTag.IPK_CERT).v.getBytes();
+            byte[] ICC_PK_CERT = berHouse.findFirst(PbocTag.ICC_PK_CERT).v.getBytes();
+
+            if (ICCAPKI != null && IPK_CERT != null && ICC_PK_CERT != null) {
+
+                if (isCardSMSupported && terminal.getSMAlgSupp() == 0x01) {
+                    //lr = EMV_SM2CDDAStepICPK( & m_ICCSM2Cert);
+                } else {
+                    //lr = EMV_CDDAStepICPK( & m_ICCCert);
+                }
+                lr = 1;
+                if (lr != 0) {
+                    Log.d(Config.APP_ID, "脱机CDA认证失败!");
+                    terminal.orTVR(0, (byte) 0x04);        //Offline Combined DDA/AC Generation failed
+                    terminal.orTSI(0, (byte) 0x80);        //set bit 'Offline Data Authentication was performed' bit 1
+                }
+
+            } else
+                terminal.orTVR(0, (byte) 0x20);
+
+
+        } else if ((AIP[0] & 0x20) != 0 && (terminal.getTermCapab()[2] & 0x40) != 0) {
+            //ICC and terminal support dynamic data auth.
+            String tmp = String.format("%02d:%02d:%02d开始执行DDA!", cal.get(Calendar.HOUR), cal.get(Calendar.MINUTE), cal.get(Calendar.SECOND));
+            Log.d(Config.APP_ID, tmp);
+            Iso7816.BerTLV SignDynAppData = berHouse.findFirst(PbocTag.SIGN_DYN_APP_DATA);
+            if (SignDynAppData == null) {
+                // 内部认证
+                lr = internalAuthen(tag, berHouse, terminal);
+                lr = 1;
+                if (lr != 0) {
+                    terminal.orTVR(0, (byte) 0x20);
+                    terminal.orTVR(0, (byte) 0x08);            //Offline dynamic Data Authentication failed
+                    terminal.orTSI(0, (byte) 0x80);            //Offline Data Authentication was performed
+                    return lr;
+                }
+            }
+
+            byte[] ICCAPKI = berHouse.findFirst(PbocTag.CAPKI).v.getBytes();
+            byte[] IPK_CERT = berHouse.findFirst(PbocTag.IPK_CERT).v.getBytes();
+            byte[] ICC_PK_CERT = berHouse.findFirst(PbocTag.ICC_PK_CERT).v.getBytes();
+
+
+            if (ICCAPKI != null && IPK_CERT != null && ICC_PK_CERT != null) {
+                if (isCardSMSupported && terminal.getSMAlgSupp() == 0x01) {
+                    //lr = EMV_SM2DynamicAuth();
+                } else {
+                    //lr = EMV_DynamicAuth();
+                }
+                lr = 1;
+                if (lr != 0) {
+                    Log.d(Config.APP_ID, "脱机DDA认证失败!");
+                    terminal.orTVR(0, (byte) 0x08);            //Offline dynamic Data Authentication failed
+                    terminal.orTSI(0, (byte) 0x80);          //Offline Data Authentication was performed
+                }
+
+            } else {
+                terminal.orTVR(0, (byte) 0x20);
+            }
+
+
+        } else if ((AIP[0] & 0x40) != 0 && (terminal.getTermCapab()[2] & 0x80) != 0) {
+            //ICC and terminal support static data auth.
+            String tmp = String.format("%02d:%02d:%02d开始执行SDA!", cal.get(Calendar.HOUR), cal.get(Calendar.MINUTE), cal.get(Calendar.SECOND));
+            Log.d(Config.APP_ID, tmp);
+            byte[] ICCAPKI = berHouse.findFirst(PbocTag.CAPKI).v.getBytes();
+            byte[] IPK_CERT = berHouse.findFirst(PbocTag.IPK_CERT).v.getBytes();
+            Iso7816.BerTLV SignDynAppData = berHouse.findFirst(PbocTag.SIGN_DYN_APP_DATA);
+            if (ICCAPKI != null && IPK_CERT != null && SignDynAppData != null) {
+                //lr = EMV_StaticAuth();
+                lr = 1;
+                if (lr != 0) {
+                    Log.d(Config.APP_ID, "脱机SDA认证失败!");
+                    terminal.orTVR(0, (byte) 0x40);            //Offline dynamic Data Authentication failed
+                    terminal.orTSI(0, (byte) 0x80);            //Offline Data Authentication was performed
+                }
+            } else {
+                terminal.orTVR(0, (byte) 0x20);
+            }
+
+        } else {
+            //The bit should be set to 1 according to test script 2CI.023.00
+            String tmp = String.format("%02d:%02d:%02d,交易未执行脱机数据认证!", cal.get(Calendar.HOUR), cal.get(Calendar.MINUTE), cal.get(Calendar.SECOND));
+            Log.d(Config.APP_ID, tmp);
+            terminal.orTVR(0, (byte) 0x80);            //Offline Data Authentication not performed
+            terminal.orTSI(0, (byte) 0x7F);            //set bit 'Offline data authentication was performed' bit 0.
+        }
+
+        return 0;
     }
 
     /**
@@ -1014,7 +1211,7 @@ public abstract class StandardPboc {
      * GET DATA命令/响应
      */
 
-    protected Iso7816.Response termRiskManage(Iso7816.BerHouse berHouse, Terminal terminal, Iso7816.StdTag tag) {
+    protected Iso7816.Response termRiskManage(Iso7816.StdTag tag, Iso7816.BerHouse berHouse, Terminal terminal) {
         Log.d(Config.APP_ID, "终端风险管理");
         //CheckExceptionFile
         int nDataLen;
@@ -1073,7 +1270,7 @@ public abstract class StandardPboc {
                         terminal.orTVR(0, (byte) 0x20);//set 'ICC data missing' bit 1.
                         return r;
                     }
-                    berHouse.add(PbocTag.ATC, r.getBytes());
+                    berHouse.add(Iso7816.BerTLV.read(r));
                 }
                 if (berHouse.findFirst(PbocTag.LOATC) == null) {
                     r = tag.getData(PbocTag.LOATC);
@@ -1081,7 +1278,7 @@ public abstract class StandardPboc {
                         terminal.orTVR(0, (byte) 0x20);//set 'ICC data missing' bit 1.
                         return r;
                     }
-                    berHouse.add(PbocTag.LOATC, r.getBytes());
+                    berHouse.add(Iso7816.BerTLV.read(r));
                 }
                 // ATC and LOATC are high byte ahead,low byte behind.
 //                int nATC = m_CardInfo.ATC[0] * 256 + m_CardInfo.ATC[1];
@@ -1118,7 +1315,7 @@ public abstract class StandardPboc {
                 if (berHouse.findFirst(PbocTag.LOATC) == null) {
                     r = tag.getData(PbocTag.LOATC);
                     if (r.isOkey()) {
-                        berHouse.add(PbocTag.LOATC, r.getBytes());
+                        berHouse.add(Iso7816.BerTLV.read(r));
                     }
 
                 } else {
@@ -1283,44 +1480,231 @@ public abstract class StandardPboc {
         }
     }
 
+    //CardInfo cardInfo;
+    TerminalInfo terminalInfo;
+    int CARD_INFO_CAPACITY = 500;
+    int TERMINAL_INFO_CAPACITY = 500;
+
+    protected static final int GAC_1 = 1;
+    protected static final int GAC_2 = 2;
+    protected static final int PARSE_DATA_COMMON = 3;
+
+    protected Iso7816.Response gacProcess(Iso7816.BerHouse berHouse, Terminal terminal, Iso7816.StdTag tag, int gacType, int transType) throws ErrMessage, IOException {
+        Log.d(Config.APP_ID, "第" + gacType + "次GAC");
+        byte p1 = 0;
+        byte[] AIP = berHouse.findFirst(PbocTag.APP_INTERCHANGE_PROFILE).v.getBytes();
+        if (transType == TRANS_DENIAL) { // TRANS_DENIAL
+            p1 = 0x00; // get AAC
+            if (terminal.getAuthRespCode() == null) {
+                if (gacType == GAC_1)
+                    terminal.setAuthRespCode(new byte[]{'Z', '1'});
+                else
+                    terminal.setAuthRespCode(new byte[]{'Z', '3'});
+
+            }
+
+        } else if (transType == TRANS_ONLINE) { // TRANS_ONLINE
+            if ((AIP[0] & 0x01) != 0 && (terminal.getTermCapab()[2] & 0x08) != 0) {
+                p1 = (byte) 0x90;// get ARQC
+
+            } else {
+                p1 = (byte) 0x90;// get ARQC
+            }
+
+        } else if (transType == TRANS_OFFLINE) { // TRANS_OFFLINE
+            if ((AIP[0] & 0x01) != 0 && (terminal.getTermCapab()[2] & 0x08) != 0) {
+                p1 = (byte) 0x50; // get ARQC
+            } else {
+                p1 = (byte) 0x40; // get TC
+            }
+            if (terminal.getAuthRespCode() == null) {
+                if (gacType == GAC_1)
+                    terminal.setAuthRespCode(new byte[]{'Y', '1'});
+                else
+                    terminal.setAuthRespCode(new byte[]{'Y', '3'});
+            }
+        } else {
+            throw new ErrMessage("GENERATE AC:错误的交易类型");
+        }
+        byte[] CDOL1 = berHouse.findFirst(PbocTag.CDOL1).v.getBytes();
+        byte[] CDOL2 = berHouse.findFirst(PbocTag.CDOL2).v.getBytes();
+        byte[] cdol;
+        // CDOL
+        if (gacType == GAC_1) {
+            cdol = buildDOL(CDOL1, berHouse);
+
+        } else if (gacType == GAC_2) {
+            cdol = buildDOL(CDOL2, berHouse);
+        } else
+            throw new ErrMessage("GENERATE AC:错误的GAC类型");
+
+        // 发送GAC命令
+        Iso7816.Response r = tag.generateAC(p1, cdol);
+        if (!r.isOkey())
+            throw new ErrMessage("GENETATE AC:第" + gacType +
+                    "次GAC 错误响应码" + r.getSw12String());
+        return r;
+    }
+
+    private void parseData(byte[] data, Iso7816.BerHouse berHouse, int mode) throws ErrMessage {
+        byte[] tag = new byte[2];
+        int offset = 0;
+        byte uctemp;
+        int nLen, tl, t;
+        int nDataLen = data.length;
+
+        while (offset < nDataLen - 1) {
+            System.arraycopy(data, offset, tag, 0, 2);
+            if ((tag[0] & 0x1F) != 0x1F) {
+                //单字节Tag
+                nLen = tag[1];
+                tag[1] = 0x0;
+                if (tag[0] == 0x61 || tag[0] == 0x6F || tag[0] == 0x70 || tag[0] == 0x77 || tag[0] == 0xA5)//跳过Tag
+                {
+                    offset += (nLen > 0x80) ? 3 : 2;
+                    continue;
+                }
+                offset += 2;
+            } else {
+                //双字节Tag
+                nLen = data[offset + 2];
+                if (Arrays.equals(tag, new byte[]{(byte) 0xBF, (byte) 0x0C})) //跳过Tag
+                {
+                    offset += (nLen > 0x80) ? 4 : 3;
+                    continue;
+                }
+                offset += 3;
+            }
+
+            if (nLen == 0 || tag[0] == 0x0) {
+                continue;
+            }
+
+            if (nLen > 0x80) {
+                tl = 0;
+                for (t = 0; t < nLen - 0x80; t++) {
+                    uctemp = data[offset];
+                    tl = 256 * tl + uctemp;
+                    offset++;
+                }
+                nLen = tl;
+            }
+
+            if (berHouse.findFirst(tag) != null) {
+
+                if (mode == GAC_2) {
+                    // nothing done
+                } else {
+                    byte[] tmp = Arrays.copyOfRange(data, offset, offset + nLen);
+                    berHouse.add(new Iso7816.BerT(tag), tmp);
+                }
+            }
+
+            offset += nLen;
+            if (offset > nDataLen) {
+                //TLV结构有误
+                throw new ErrMessage("TLV结构有错误");
+            }
+        } // end while
+    }
+
+
+    public static boolean isCardSMSupported = false;
+
     /**
      * 联机处理
      */
-    protected void onLineProcess() {
+    protected int onLineProcess(Iso7816.BerHouse berHouse, Terminal terminal, Iso7816.Response resp) throws ErrMessage {
         Log.d(Config.APP_ID, "联机处理");
+        byte[] gacresp = resp.getBytes();
+        int len = Util.toInt(gacresp[1]);
+        if (gacresp[0] == 0x80) {
+            byte[] ucPrimData = new byte[0];
+            if (len == gacresp.length - 2)
+                ucPrimData = Arrays.copyOfRange(resp.getBytes(), 2, len);
+
+            berHouse.add(PbocTag.CRYPTOGRAM_INFO, new byte[]{ucPrimData[0]});
+            berHouse.add(PbocTag.ATC, Arrays.copyOfRange(ucPrimData, 1, 3));
+            berHouse.add(PbocTag.APP_CRYPTOGRAM, Arrays.copyOfRange(ucPrimData, 3, 11));
+            berHouse.add(PbocTag.ISSUER_APP_DATA, Arrays.copyOfRange(ucPrimData, 11, len - 2));
+
+        } else if (gacresp[0] == 0x77) {
+            parseData(resp.getBytes(), berHouse, GAC_1);
+        } else
+            throw new ErrMessage("联机处理:错误的GAC响应数据:" + Util.toHexString(gacresp[0]));
+
+        byte cryptInfo = berHouse.findFirst(PbocTag.CRYPTOGRAM_INFO).v.getBytes()[0];
+
+        byte[] AIP = berHouse.findFirst(PbocTag.APP_INTERCHANGE_PROFILE).v.getBytes();
+        byte[] signDynAppData = berHouse.findFirst(PbocTag.SIGN_DYN_APP_DATA).v.getBytes();
+        if ((cryptInfo & 0x80) == 0x80) {
+            if ((AIP[0] & 0x01) != 0 && (terminal.getTermCapab()[2] & 0x08) != 0 && signDynAppData != null) {
+                if (isCardSMSupported && (terminal.getSMAlgSupp() == 0x01)) {
+                    // 复合动态数据认证（国密）
+//                    lr = EMV_SM2CombineDDA(0);
+                } else {
+                    // 复合动态数据认证（国际）
+//                    lr = EMV_CombineDDA(0);
+                }
+                int lr = 0;
+                if (lr != 0) {
+                    terminal.orTVR(0, (byte) 0x04);        //Offline Combined DDA/AC Generation failed
+                    terminal.orTSI(0, (byte) 0x80);        //set bit 'Offline Data Authentication was performed' bit 1
+                }
+            }
+
+            terminal.setAuthRespCode(new byte[]{(byte) 0, (byte) 0});
+            return TRANS_ONLINE;
+
+        } else if ((cryptInfo & 0x40) == 0x40) {
+
+            if ((AIP[0] & 0x01) != 0 && (terminal.getTermCapab()[2] & 0x08) != 0 && signDynAppData != null) {
+                if (isCardSMSupported && (terminal.getSMAlgSupp() == 0x01)) {
+//                    lr = EMV_SM2CombineDDA(0);
+                } else {
+//                    lr = EMV_CombineDDA(0);
+                }
+                int lr = 0;
+                if (lr != 0) {
+                    terminal.orTVR(0, (byte) 0x04);        //Offline Combined DDA/AC Generation failed
+                    terminal.orTSI(0, (byte) 0x80);        //set bit 'Offline Data Authentication was performed' bit 1
+                }
+            }
+            return TRANS_OFFLINE;
+
+        } else
+            return TRANS_DENIAL;
+
     }
 
     /**
      * 发卡行认证
      * EXTERNAL AUTHENTICATE命令/响应
      */
-    protected long issuerVerify(Iso7816.BerHouse berHouse, Terminal terminal, Iso7816.StdTag tag, byte[] apc, byte[] arpc) {
+    protected Iso7816.Response issuerVerify(Iso7816.StdTag tag, Iso7816.BerHouse berHouse, Terminal terminal, byte[] arc, byte[] arpc) throws IOException, ErrMessage {
         Log.d(Config.APP_ID, "发卡行认证");
         long lr;
         int nLen = 0;
 
 //        memcpy(m_TermInfo.AuthRespCode, pucAuthRespCode, 2);
 //        m_TermDataTable[TERM_Index_AuthorRespCode].bExist = 1;
-        if (apc != null && apc.length == 2)
-            terminal.setAuthRespCode(apc);
+        if (arc != null && arc.length == 2)
+            terminal.setAuthRespCode(arc);
 
-        if (!(.AIP[0] & 0x04))//ICC not support Issuer Authenticate.
-        return 0;
+        if ((berHouse.findFirst(PbocTag.APP_INTERCHANGE_PROFILE).v.getBytes()[0] & 0x04) == 0)//ICC not support Issuer Authenticate.
+            throw new ErrMessage("IC卡不支持发卡行认证");
 
-        m_TermInfo.TSI[0] |= 0x10;//Issuer authentication was performed
+        terminal.getTSI()[0] |= 0x10;//Issuer authentication was performed
 
-        memcpy(apdu_s.Command, "\x00\x82\x00\x00", 4);
-        memcpy(apdu_s.DataIn, pucARPC, 8);
-        memcpy(apdu_s.DataIn + 8, m_TermInfo.AuthRespCode, 2);
-        apdu_s.Lc = 10;
-        apdu_s.Le = 0;
-        lr = m_Reader.ICCCommand(m_hReader, m_dwProtocol, & apdu_s,&apdu_r);
-        if (lr != 0) {
-            m_TermInfo.TVR[4] |= 0x40;//Issuer authentication failed
-            return lr;
+        byte[] b = Arrays.copyOf(arpc, 10);
+        System.arraycopy(terminal.getAuthRespCode(), 0, b, 8, 2);
+
+        // 外部认证
+        Iso7816.Response r = tag.externalAuthenticate(b);
+        if (!r.isOkey()) {
+            terminal.orTVR(4, (byte) 0x40); //Issuer authentication failed
         }
-
-        return 0;
+        return r;
     }
 
     /**
@@ -1335,8 +1719,25 @@ public abstract class StandardPboc {
      * 发卡行脚本处理
      * 发卡行脚本命令/响应
      */
-    protected void issuerScriptDeal() {
+    protected void issuerScriptProcess(Iso7816.StdTag tag, Terminal terminal, byte scriptType, ByteBuffer[] bufs) throws IOException {
         Log.d(Config.APP_ID, "发卡行脚本处理");
+        Iso7816.Response r;
+        long lr;
+        int i, nErrNum = 0;
+
+        for (i = 0; i != bufs.length; i++) {
+            r = tag.sendAPDU(bufs[i].array());
+            if (!r.isOkey()) {
+                if (scriptType == 0x71) {
+                    terminal.orTVR(4, (byte) 0x20);
+                    terminal.orTSI(0, (byte) 0x04);
+                } else if (scriptType == 0x72) {
+                    terminal.orTVR(4, (byte) 0x10);//Issuer authentication failed
+                    terminal.orTSI(0, (byte) 0x04);
+                }
+            }
+        }
+
     }
 
     class CVM {
@@ -1344,7 +1745,24 @@ public abstract class StandardPboc {
         byte condition;
     }
 
-    byte[] verifyARQC(Iso7816.BerHouse berHouse, byte[] bACKey, byte[] bMACKey, byte[] bENCKey, boolean bMasterKey) throws Exception {
+    /**
+     * 验证ARQC
+     *
+     * @param berHouse
+     * @param bACKey
+     * @param bMACKey
+     * @param bENCKey
+     * @param bMasterKey
+     * @return ARC ARPC
+     * @throws ErrMessage
+     * @throws IllegalBlockSizeException
+     * @throws InvalidKeyException
+     * @throws BadPaddingException
+     * @throws NoSuchAlgorithmException
+     * @throws NoSuchPaddingException
+     */
+
+    byte[] verifyARQC(Iso7816.BerHouse berHouse, byte[] bACKey, byte[] bMACKey, byte[] bENCKey, boolean bMasterKey) throws ErrMessage, IllegalBlockSizeException, InvalidKeyException, BadPaddingException, NoSuchAlgorithmException, NoSuchPaddingException {
 
         if ((bACKey != null && bACKey.length == 16) || (bMACKey != null && bMACKey.length == 16) || (bENCKey != null && bENCKey.length == 16)) {
             // generate cardInfo
@@ -1569,7 +1987,7 @@ public abstract class StandardPboc {
             }
 
             if (!Arrays.equals(ARQC, clientInfo.appCrypt)) {
-                throw new Exception("ARQC与应用密文不匹配" + Util.toHexString(ARQC));
+                throw new ErrMessage("ARQC与应用密文不匹配" + Util.toHexString(ARQC));
             }
 
 //            if (clientInfo.cryptInfo == 0x80) {
@@ -1615,4 +2033,5 @@ public abstract class StandardPboc {
         }
         return null;
     }
+
 }

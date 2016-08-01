@@ -11,6 +11,7 @@ import com.ftsafe.iccd.ecard.bean.Card;
 import java.io.IOException;
 import java.util.ArrayList;
 
+import ftsafe.common.ErrMessage;
 import ftsafe.common.Util;
 import ftsafe.reader.tech.Iso7816;
 import ftsafe.reader.tech.Iso7816.BerTLV;
@@ -38,96 +39,143 @@ public class StandardLoad extends com.ftsafe.iccd.ecard.reader.pboc.StandardPboc
     @Override
     protected HINT readCard(Iso7816.StdTag tag, Card card) throws IOException {
         final ArrayList<Iso7816.ID> aids = getApplicationIds(tag);
+        try {
 
-        for (Iso7816.ID aid : aids) {
+            for (Iso7816.ID aid : aids) {
             /*--------------------------------------------------------------*/
-            // 应用选择
+                // 应用选择
             /*--------------------------------------------------------------*/
-            // SELECT
-            Iso7816.Response rsp = tag.selectByName(aid.getBytes());
-            if (rsp.isOkey() == false)
-                continue;
-            Log.d(Config.APP_ID, "选择 " + aid + " 应用完成");
+                // SELECT
+                Iso7816.Response rsp = tag.selectByName(aid.getBytes());
+                if (rsp.isOkey() == false)
+                    continue;
+                Log.d(Config.APP_ID, "选择 " + aid + " 应用完成");
 
-            // initial BerTLV
-            final Iso7816.BerHouse berHouse = new Iso7816.BerHouse();
-            // initialize Terminal
-            Terminal terminal = initTerminal();
+                // initial BerTLV
+                final Iso7816.BerHouse berHouse = new Iso7816.BerHouse();
+                // 初始化终端交易参数
+                // 参数顺序：9F7A,9F66,9C,9F02,9F03,DF60,DF69
+                Terminal terminal = null;
 
-            // collect info
-            Iso7816.BerTLV.extractPrimitives(berHouse, rsp);
-            // GET DATA 9F38
+                terminal = initTerminal();
+
+
+                // collect info
+                Iso7816.BerTLV.extractPrimitives(berHouse, rsp);
+                // GET DATA 9F38
 //            subTLVs.add(BerTLV.read(tag.getData((short) 0x9F36)));
             /*--------------------------------------------------------------*/
-            // 应用初始化
+                // 应用初始化
             /*--------------------------------------------------------------*/
-            // GPO
-            byte[] pdol = buildPDOL(berHouse, terminal);
-            Log.e(Config.APP_ID, "PDOL=" + Util.toHexString(pdol));
-            rsp = tag.getProcessingOptions(pdol);
-            if (rsp.isOkey() == false)
-                throw new IOException("GPO失败");
-            BerTLV.extractPrimitives(berHouse, rsp);
-            Log.d(Config.APP_ID, "GPO完成");
+                // GPO
+                byte[] pdol = buildPDOL(berHouse, terminal);
+
+                Log.e(Config.APP_ID, "PDOL=" + Util.toHexString(pdol));
+
+                rsp = tag.getProcessingOptions(pdol);
+                if (rsp.isOkey() == false)
+                    throw new IOException("GPO失败");
+
+                BerTLV.extractPrimitives(berHouse, rsp);
+
+                Log.d(Config.APP_ID, "GPO完成");
             /*--------------------------------------------------------------*/
-            // 读取应用数据
+                // 读取应用数据
             /*--------------------------------------------------------------*/
-            readApplicationRecord(tag, berHouse);
-            Log.d(Config.APP_ID, "读应用记录完成");
+                readApplicationRecord(tag, berHouse);
+                Log.d(Config.APP_ID, "读应用记录完成");
             /*--------------------------------------------------------------*/
-            // 脱机数据认证
+                // 脱机数据认证
             /*--------------------------------------------------------------*/
-//            offLineDataAuthenticate(false);
+                offLineDataAuthenticate(tag, berHouse, terminal);
 
             /*--------------------------------------------------------------*/
-            // 处理限制
+                // 处理限制
             /*--------------------------------------------------------------*/
-            processRestrict(berHouse, terminal);
-            Log.d(Config.APP_ID, "处理限制完成");
+                processRestrict(berHouse, terminal);
+                Log.d(Config.APP_ID, "处理限制完成");
             /*--------------------------------------------------------------*/
-            // 持卡人验证
+                // 持卡人验证
             /*--------------------------------------------------------------*/
-            cardHolderVerify(berHouse, terminal);
-            Log.d(Config.APP_ID, "持卡人验证完成");
+                cardHolderVerify(berHouse, terminal);
+                Log.d(Config.APP_ID, "持卡人验证完成");
             /*--------------------------------------------------------------*/
-            // EXTERNAL AUTHENTICATE
+                // 终端风险管理
+            /*--------------------------------------------------------------*/
+                rsp = termRiskManage(tag, berHouse, terminal);
+                if (!rsp.isOkey()) {
+                    throw new ErrMessage("终端风险管理异常响应:" + rsp.getSw12String());
+                }
+                Log.d(Config.APP_ID, "终端风险管理完成");
+            /*--------------------------------------------------------------*/
+                // 终端行为分析
+            /*--------------------------------------------------------------*/
+                int transType = termActionAnalyze(berHouse, terminal);
+
+                rsp = gacProcess(berHouse, terminal, tag, GAC_1, transType);
+                if (!rsp.isOkey())
+                    throw new ErrMessage("GAC异常响应:" + rsp.getSw12String());
+                BerTLV.extractPrimitives(berHouse, rsp);
+                Log.d(Config.APP_ID, "终端行为分析完成");
+
+            /*--------------------------------------------------------------*/
+                // 联机交易
+            /*--------------------------------------------------------------*/
+                transType = onLineProcess(berHouse, terminal, rsp);
+                if (transType == TRANS_ONLINE) {
+                    // ON LINE
+                } else if (transType == TRANS_OFFLINE) {
+                    // 脱机
+
+                } else if (transType == TRANS_DENIAL) {
+                    // 脱机拒绝
+                } else {
+                    // nothing done
+                }
+            /*--------------------------------------------------------------*/
+                // GENERATE AC
             /*--------------------------------------------------------------*/
 
             /*--------------------------------------------------------------*/
-            // GENERATE AC
-            /*--------------------------------------------------------------*/
-
-            /*--------------------------------------------------------------*/
-            // PUT DATA 9F79
+                // PUT DATA 9F79
             /*--------------------------------------------------------------*/
 
 
+            }
+        } catch (ErrMessage errMessage) {
+            errMessage.printStackTrace();
         }
         return card.isUnknownCard() ? HINT.RESETANDGONEXT : HINT.STOP;
     }
 
+    public static String amt;
+
     @NonNull
-    private Terminal initTerminal() {
+    private Terminal initTerminal() throws ErrMessage {
+
         Log.d(Config.APP_ID, "初始化终端参数");
         byte vlpIndicator = 0;
         byte[] termTransAtr = {0x48, 0, 0, 0};
         byte transType = 0;
+        if (amt == null || amt.length() != 12)
+            throw new ErrMessage("授权金额格式错误:" + amt);
         // 授权金额
-        byte[] amtAuthNum = {0, 0, 0, 0, 0, 0};
+        byte[] amtAuthNum = Util.toBytes(amt);
         // 其他授权金额
         byte[] amtOtherNum = {0, 0, 0, 0, 0, 0};
+        // capp标识
         byte cappFlag = 0;
+        // 国密支持
         byte smAlgSupp = 0;
-        Terminal terminal = new Terminal(vlpIndicator, termTransAtr, transType, amtAuthNum, amtOtherNum, cappFlag, smAlgSupp);
-        byte[] countryCode = {0x01, 0x56};
-        byte[] tvr = {(byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00};
         // 国家代码
-        terminal.setCountryCode(countryCode);
-        // 交易货币代码
-        terminal.setTransCurcyCode(countryCode);
-        // FIXME：终端验证结果
-        terminal.setTVR(tvr);
+        byte[] countryCode = {0x01, 0x56};
+        // TVR 终端验证结果
+        byte[] tvr = {(byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00};
+
+        Terminal terminal = new Terminal(vlpIndicator, termTransAtr, transType, amtAuthNum, amtOtherNum, cappFlag, smAlgSupp, countryCode, tvr);
+
         return terminal;
+
     }
 
     private final Iso7816.BerHouse topTLVs = new Iso7816.BerHouse();

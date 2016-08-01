@@ -40,4 +40,11 @@ public class PbocTag {
     public static final short AMT_AUTHOR_NUM = (short) 0x9F02;
     public static final short AMT_OTHER_NUM = (short) 0x9F03;
     public static final short UNPREDICT_NUM = (short) 0x9F37;
+    public static final byte CDOL1=(byte)0x8C;
+    public static final byte CDOL2=(byte)0x8D;
+    public static final short SIGN_DYN_APP_DATA = (short)0x9F4B;
+    public static final byte CAPKI = (byte)0x8F;
+    public static final byte IPK_CERT = (byte)0x90;
+    public static final short ICC_PK_CERT = (short)0x9F46;
+    public static final short DDOL = (short)0x9F49;
 }

@@ -3,6 +3,7 @@ package com.ftsafe.iccd.ecard;
 import java.io.UnsupportedEncodingException;
 
 import ftsafe.common.Util;
+import ftsafe.reader.tech.Iso7816;
 
 /**
  * Created by qingyuan on 2016/7/20.
@@ -11,7 +12,7 @@ public class Terminal {
 
     // 终端参数初始化，在EMV_InitialApp之前调用
     // 参数顺序：9F7A,9F66,9C,9F02,9F03,DF60,DF69
-    public Terminal(byte vlpIndicator, byte[] termTransAtr, byte transType, byte[] amtAuthNum, byte[] amtOtherNum, byte cappFlag, byte smAlgSupp) {
+    public Terminal(byte vlpIndicator, byte[] termTransAtr, byte transType, byte[] amtAuthNum, byte[] amtOtherNum, byte cappFlag, byte smAlgSupp, byte[] countryCode, byte[] tvr) {
         try {
             // 不可预知数
             setUnpredictNum(Util.getRandom(4));
@@ -21,17 +22,38 @@ public class Terminal {
             setTransDate(Util.getSysDate(3));
             // 终端名称
             setMerchantName(Config.TERMINAL_NAME_CN.getBytes(Config.CHARSET));
+            // EC 终端支持指示器 0:no 1:yes
             setVLPIndicator(vlpIndicator);
+            // 终端交易属性
             setTermTransAtr(termTransAtr);
+            // 交易类型
             setTransType(transType);
+            // 授权金额
             setAmtAuthNum(amtAuthNum);
+            // 其他授权金额
             setAmtOtherNum(amtOtherNum);
+            // capp 支持
             setTermCappFlag(cappFlag);
+            // 设置国秘支持
             setSMAlgSupp(smAlgSupp);
+            // 国家代码
+            setCountryCode(countryCode);
+            // 交易货币代码
+            setTransCurcyCode(countryCode);
         } catch (UnsupportedEncodingException e) {
             e.printStackTrace();
         }
     }
+
+    public Iso7816.BerHouse getBerHouse() {
+        return berHouse;
+    }
+
+    public void setBerHouse(Iso7816.BerHouse berHouse) {
+        this.berHouse = berHouse;
+    }
+
+    private Iso7816.BerHouse berHouse;
 
     public byte[] getAcquireID() {
         return acquireID;
@@ -227,7 +249,7 @@ public class Terminal {
         this.bForceOnline = bForceOnline;
     }
 
-    //also see emvterm.pdf p32
+    //also see emvterm.pdf p32 default:0-offLine
     private byte bForceOnline = 0;
     //private set for send different msg to host-AuthRQ and FinaRQ.
     private byte bBatchCapture = 0;
@@ -237,6 +259,15 @@ public class Terminal {
     private byte maxTargetPercent = 0;
     //Preset by terminal. range 0-99, and MTP>=TP
     private byte targetPercent = 0;
+
+    public byte[] getTermDDOL() {
+        return termDDOL;
+    }
+
+    public void setTermDDOL(byte[] termDDOL) {
+        this.termDDOL = termDDOL;
+    }
+
     //term hold of default DDOL,must be initialised in init. len:128
     private byte[] termDDOL;
     //terminal stored default TDOL. len:128
@@ -400,6 +431,7 @@ public class Terminal {
     }
 
     //tag'9F7A' //0-not support; 1-support; 2-VLP only. variable parameter to indicate if this trans is VLP supported.
+    // EC Terminal Support Indicator
     private byte vLPIndicator;
 
     public byte[] getTransDate() {

@@ -34,6 +34,10 @@ public class TripleDES {
     public static final String DESEDE_ECB_NOPADDING = "DESede/ECB/NoPadding";
     private static final String DESede_ECB_PKCS5PADDING = "DESede/ECB/PKCS5Padding";
     private static final String DESede_ECB_ISO10126PADDING = "DESede/ECB/ISO10126Padding";
+    private static final String DESede_ECB_NOPADDING = "DESede/ECB/NoPadding";
+    private static final String DESede_CBC_PKCS5PADDING="DESede/CBC/PKCS5Padding";
+    private static final String DESede_CBC_NOPADDING="DESede/CBC/NoPadding";
+
 
     /**
      * Generate a secret TripleDES encryption/decryption key
@@ -108,7 +112,7 @@ public class TripleDES {
         java.util.Arrays.fill(buffer, (byte) 0);
     }
 
-    public static byte[] encrypt(byte[] key, byte[] msg, String cipherAlgorithm) throws NoSuchPaddingException, NoSuchAlgorithmException, BadPaddingException, IllegalBlockSizeException, InvalidKeyException {
+    public static byte[] encrypt(byte[] key, byte[] msg, byte[] iv, String cipherAlgorithm) throws NoSuchPaddingException, NoSuchAlgorithmException, BadPaddingException, IllegalBlockSizeException, InvalidKeyException {
 
         if (key.length == 16) {
             // E key
@@ -122,9 +126,9 @@ public class TripleDES {
             System.arraycopy(eKey, 0, keyTmp, 16, eKey.length);
 
             //generate tripleDes key
-            SecretKey secretKey = new SecretKeySpec(keyTmp, DESEDE);
+            SecretKey secretKey = new SecretKeySpec(keyTmp, DESEDE_ECB_NOPADDING);
             // Create and initialize the encryption engine
-            Cipher cipher = Cipher.getInstance(DESEDE);
+            Cipher cipher = Cipher.getInstance(DESEDE_ECB_NOPADDING);
             if (cipherAlgorithm != null)
                 cipher = Cipher.getInstance(cipherAlgorithm);
 
@@ -166,7 +170,7 @@ public class TripleDES {
             //对最后一组数据做异或
             xor = Util.calXOR(tmp, lastD, 8);
             //对最后一组数据做3DES加密
-            tmp = encrypt(key, xor, null);
+            tmp = encrypt(key, xor, null ,null);
             //取选定的长度的字节数据
             if (outLen > tmp.length)
                 return tmp;
@@ -224,9 +228,9 @@ public class TripleDES {
             System.arraycopy(dKey, 0, keyTmp, 8, dKey.length);
             System.arraycopy(eKey, 0, keyTmp, 16, eKey.length);
             //generate tripleDes key
-            SecretKey secretKey = new SecretKeySpec(keyTmp, DESEDE);
+            SecretKey secretKey = new SecretKeySpec(keyTmp, DESEDE_ECB_NOPADDING);
             // Create and initialize the decryption engine
-            Cipher cipher = Cipher.getInstance(DESEDE);
+            Cipher cipher = Cipher.getInstance(DESEDE_ECB_NOPADDING);
             if (cipherAlgorithm != null)
                 cipher = Cipher.getInstance(cipherAlgorithm);
             cipher.init(Cipher.DECRYPT_MODE, secretKey);

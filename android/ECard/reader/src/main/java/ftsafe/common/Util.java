@@ -32,6 +32,11 @@ public final class Util {
                 (byte) (0x000000ff & (a >>> 8)), (byte) (0x000000ff & (a))};
     }
 
+    public static byte[] toBytes(short a) {
+        return new byte[]{(byte) (0x000000ff & (a >>> 8)), (byte) (0x000000ff & (a))};
+    }
+
+
     public static boolean testBit(byte data, int bit) {
         final byte mask = (byte) ((1 << bit) & 0x000000FF);
 

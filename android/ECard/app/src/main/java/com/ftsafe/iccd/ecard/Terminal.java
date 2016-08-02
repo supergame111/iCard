@@ -46,6 +46,8 @@ public class Terminal {
             setTermCapab(new byte[]{(byte) 0xA0, 0, (byte) 0x80});
             // TVR
             setTVR(new byte[]{0, 0, 0, 0, 0});
+            // 终端类型
+            setTermType((byte)0x32);
         } catch (UnsupportedEncodingException e) {
             e.printStackTrace();
         }

@@ -47,4 +47,9 @@ public class PbocTag {
     public static final byte IPK_CERT = (byte)0x90;
     public static final short ICC_PK_CERT = (short)0x9F46;
     public static final short DDOL = (short)0x9F49;
+    public static final byte TVR = (byte)0x95;
+    public static final short TERM_COUNTRY_CODE = (short)0x9F1A;
+    public static final short TRANS_CURRENCY_CODE = (short)0x5F2A;
+    public static final byte TRANS_DATE = (byte)0x9A;
+    public static final byte TRANS_TYPE = (byte)0x9C;
 }

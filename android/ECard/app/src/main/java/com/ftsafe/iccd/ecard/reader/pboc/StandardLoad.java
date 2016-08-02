@@ -7,10 +7,18 @@ import com.ftsafe.iccd.ecard.Config;
 import com.ftsafe.iccd.ecard.SPEC;
 import com.ftsafe.iccd.ecard.Terminal;
 import com.ftsafe.iccd.ecard.bean.Card;
+import com.ftsafe.iccd.ecard.pojo.PbocTag;
 import com.ftsafe.iccd.ecard.ui.activities.LoadActivity;
 
 import java.io.IOException;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.Arrays;
+
+import javax.crypto.BadPaddingException;
+import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.NoSuchPaddingException;
 
 import ftsafe.common.ErrMessage;
 import ftsafe.common.Util;
@@ -37,6 +45,10 @@ public class StandardLoad extends com.ftsafe.iccd.ecard.reader.pboc.StandardPboc
         return true;
     }
 
+    String acStr = "7510E39445A8C42ADA89CDA10E700D29";
+    String macStr = "3E89866D8604DF85F1C41AB3AD7AF1DA";
+    String encStr = "6E2C947A9B01B3614025F467C4F77C01";
+
     @Override
     protected HINT readCard(Iso7816.StdTag tag, Card card) throws IOException, ErrMessage {
         final ArrayList<Iso7816.ID> aids = getApplicationIds(tag);
@@ -62,7 +74,7 @@ public class StandardLoad extends com.ftsafe.iccd.ecard.reader.pboc.StandardPboc
             Terminal terminal = null;
 
             terminal = initTerminal();
-            Log.d(Config.APP_ID, "终端初始化完成");
+            Log.d(Config.APP_ID, "初始化终端参数完成");
             /*--------------------------------------------------------------*/
             // 应用初始化
             /*--------------------------------------------------------------*/
@@ -112,7 +124,7 @@ public class StandardLoad extends com.ftsafe.iccd.ecard.reader.pboc.StandardPboc
             // 终端行为分析
             /*--------------------------------------------------------------*/
             int transType = termActionAnalyze(berHouse, terminal);
-
+            Log.e(Config.APP_ID, "终端决定交易类型:" + transType);
             rsp = gacProcess(berHouse, terminal, tag, GAC_1, transType);
             if (!rsp.isOkey())
                 throw new ErrMessage("GAC异常响应:" + rsp.getSw12String());
@@ -122,31 +134,95 @@ public class StandardLoad extends com.ftsafe.iccd.ecard.reader.pboc.StandardPboc
             /*--------------------------------------------------------------*/
             // 联机交易
             /*--------------------------------------------------------------*/
+            byte[] result = null;
+
             transType = onLineProcess(berHouse, terminal, rsp);
             if (transType == TRANS_ONLINE) {
                 // ON LINE
-                Log.d(Config.APP_ID, "执行联机交易");
+                Log.d(Config.APP_ID, "执行联机交易" + transType);
+                byte[] ac = Util.toBytes(acStr);
+                byte[] mac = Util.toBytes(macStr);
+                byte[] enc = Util.toBytes(encStr);
+                try {
+                    Iso7816.BerHouse params = new Iso7816.BerHouse();
+                    // build params
+                    buildParmas(params, berHouse, terminal);
+                    result = verifyARQC(params, ac, mac, enc, false);
+                } catch (IllegalBlockSizeException e) {
+                    e.printStackTrace();
+                } catch (InvalidKeyException e) {
+                    e.printStackTrace();
+                } catch (BadPaddingException e) {
+                    e.printStackTrace();
+                } catch (NoSuchAlgorithmException e) {
+                    e.printStackTrace();
+                } catch (NoSuchPaddingException e) {
+                    e.printStackTrace();
+                }
             } else if (transType == TRANS_OFFLINE) {
                 // 脱机
-                Log.d(Config.APP_ID, "执行脱机交易");
+                Log.d(Config.APP_ID, "执行脱机交易" + transType);
             } else if (transType == TRANS_DENIAL) {
                 // 脱机拒绝
-                Log.d(Config.APP_ID, "脱机拒绝");
+                Log.d(Config.APP_ID, "脱机拒绝" + transType);
             } else {
                 throw new ErrMessage("联机处理异常:" + transType);
             }
             Log.d(Config.APP_ID, "联机处理完成");
             /*--------------------------------------------------------------*/
-            // GENERATE AC
+            // 发卡行认证
             /*--------------------------------------------------------------*/
-
+            if (result != null && result.length == 10) {
+                byte[] arc = Arrays.copyOfRange(result, 0, 3);
+                Log.e(Config.APP_ID, "ARC=" + Util.toHexString(arc));
+                byte[] arpc = Arrays.copyOfRange(result, 2, 10);
+                Log.e(Config.APP_ID, "ARPC=" + Util.toHexString(arpc));
+                // 发卡行认证
+                rsp = issuerVerify(tag, berHouse, terminal, arc, arpc);
+                if (!rsp.isOkey())
+                    throw new ErrMessage("发卡行认证异常码:" + rsp.getSw12String());
+                Log.d(Config.APP_ID, "发卡行认证完成");
+            }
             /*--------------------------------------------------------------*/
-            // PUT DATA 9F79
+            // 交易结束
             /*--------------------------------------------------------------*/
-
+            rsp = gacProcess(berHouse, terminal, tag, GAC_2, transType);
+            if (!rsp.isOkey())
+                throw new ErrMessage("GAC异常响应:" + rsp.getSw12String());
+            Log.d(Config.APP_ID, "第" + GAC_1 + "GAC完成");
+            /*--------------------------------------------------------------*/
+            // 发卡行脚本处理
+            /*--------------------------------------------------------------*/
 
         }
         return card.isUnknownCard() ? HINT.RESETANDGONEXT : HINT.STOP;
+    }
+
+    private void buildParmas(Iso7816.BerHouse out, Iso7816.BerHouse berHouse, Terminal terminal) {
+        for (int i = 0; i < ClientInfo.TAG_PARAMS.length; i++) {
+            short t = ClientInfo.TAG_PARAMS[i];
+            byte[] tmp = Util.toBytes(t);
+
+            Iso7816.BerT berT;
+            if (tmp[0] == (byte) 0xFF || tmp[0] == (byte) 0x00) {
+                berT = new Iso7816.BerT(tmp[1]);
+            } else {
+                berT = new Iso7816.BerT(t);
+            }
+
+            byte[] value = null;
+            BerTLV tlv = berHouse.findFirst(berT);
+            if (tlv != null) {
+                value = tlv.v.getBytes();
+            } else {
+                value = terminal.getValue(tmp);
+            }
+
+            if (value != null) {
+                tlv = new BerTLV(berT, new Iso7816.BerL(value.length), new Iso7816.BerV(value));
+                out.add(tlv);
+            }
+        }
     }
 
     public static String amt = LoadActivity.AMT;

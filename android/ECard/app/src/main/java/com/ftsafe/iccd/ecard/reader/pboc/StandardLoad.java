@@ -7,10 +7,12 @@ import com.ftsafe.iccd.ecard.Config;
 import com.ftsafe.iccd.ecard.SPEC;
 import com.ftsafe.iccd.ecard.Terminal;
 import com.ftsafe.iccd.ecard.bean.Card;
-import com.ftsafe.iccd.ecard.pojo.PbocTag;
+import com.ftsafe.iccd.ecard.backend.Server;
+import com.ftsafe.iccd.ecard.bean.ClientInfo;
 import com.ftsafe.iccd.ecard.ui.activities.LoadActivity;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
@@ -135,6 +137,7 @@ public class StandardLoad extends com.ftsafe.iccd.ecard.reader.pboc.StandardPboc
             // 联机交易
             /*--------------------------------------------------------------*/
             byte[] result = null;
+            byte[] script = null;
 
             transType = onLineProcess(berHouse, terminal, rsp);
             if (transType == TRANS_ONLINE) {
@@ -147,7 +150,12 @@ public class StandardLoad extends com.ftsafe.iccd.ecard.reader.pboc.StandardPboc
                     Iso7816.BerHouse params = new Iso7816.BerHouse();
                     // build params
                     buildParmas(params, berHouse, terminal);
-                    result = verifyARQC(params, ac, mac, enc, false);
+                    EMVMode = TRANS_MODE_PBOC;
+                    Server server = new Server();
+                    // 校验ARQC
+                    result = server.verifyARQC(params, ac, mac, enc, EMVMode, false);
+                    // 生成脚本
+                    script = server.buildUpdateECScript();
                 } catch (IllegalBlockSizeException e) {
                     e.printStackTrace();
                 } catch (InvalidKeyException e) {
@@ -173,7 +181,7 @@ public class StandardLoad extends com.ftsafe.iccd.ecard.reader.pboc.StandardPboc
             // 发卡行认证
             /*--------------------------------------------------------------*/
             if (result != null && result.length == 10) {
-                byte[] arc = Arrays.copyOfRange(result, 0, 3);
+                byte[] arc = Arrays.copyOfRange(result, 0, 2);
                 Log.e(Config.APP_ID, "ARC=" + Util.toHexString(arc));
                 byte[] arpc = Arrays.copyOfRange(result, 2, 10);
                 Log.e(Config.APP_ID, "ARPC=" + Util.toHexString(arpc));
@@ -181,6 +189,8 @@ public class StandardLoad extends com.ftsafe.iccd.ecard.reader.pboc.StandardPboc
                 rsp = issuerVerify(tag, berHouse, terminal, arc, arpc);
                 if (!rsp.isOkey())
                     throw new ErrMessage("发卡行认证异常码:" + rsp.getSw12String());
+                // 批准交易
+                transType = TRANS_APPROVE;
                 Log.d(Config.APP_ID, "发卡行认证完成");
             }
             /*--------------------------------------------------------------*/
@@ -189,11 +199,16 @@ public class StandardLoad extends com.ftsafe.iccd.ecard.reader.pboc.StandardPboc
             rsp = gacProcess(berHouse, terminal, tag, GAC_2, transType);
             if (!rsp.isOkey())
                 throw new ErrMessage("GAC异常响应:" + rsp.getSw12String());
-            Log.d(Config.APP_ID, "第" + GAC_1 + "GAC完成");
+            Log.d(Config.APP_ID, "第" + GAC_2 + "次GAC完成");
             /*--------------------------------------------------------------*/
             // 发卡行脚本处理
             /*--------------------------------------------------------------*/
-
+            ByteBuffer[] buf = new ByteBuffer[]{ByteBuffer.wrap(script)};
+            int ret = issuerScriptProcess(tag, terminal, (byte) 0x72, buf);
+            if (ret != 0) {
+                throw new ErrMessage("脚本执行错误");
+            }
+            Log.d(Config.APP_ID, "发卡行脚本处理完成");
         }
         return card.isUnknownCard() ? HINT.RESETANDGONEXT : HINT.STOP;
     }

@@ -24,7 +24,8 @@ import javax.crypto.NoSuchPaddingException;
 
 import ftsafe.common.ErrMessage;
 import ftsafe.common.Util;
-import ftsafe.common.encryption.TripleDES;
+import ftsafe.common.encryption.DES2;
+import ftsafe.common.encryption.DES2.TripleDES;
 import ftsafe.reader.Reader;
 import ftsafe.reader.tech.Iso7816;
 
@@ -125,10 +126,10 @@ public abstract class StandardPboc {
     protected static int EMVMode;
     protected static int MAX_LOG = 10;
     protected static int SFI_LOG = 24;
-    protected static int TRANS_MODE_PBOC = 0x01;
-    protected static int TRANS_MODE_VISA = 0x02;
-    protected static int TRANS_MODE_MASTERCARD = 0x10;
-    protected static byte TRANS_MODE_EMV = (byte) 0x80;
+    protected static int TRANS_MODE_PBOC = 1;
+    protected static int TRANS_MODE_VISA = 2;
+    protected static int TRANS_MODE_MASTERCARD = 10;
+    protected static int TRANS_MODE_EMV = 80;
     //transaction type
     protected static byte TERM_TRANS_CASH = 0;
     protected static byte TERM_TRANS_GOODS = 1;
@@ -1576,7 +1577,7 @@ public abstract class StandardPboc {
         if (cdol == null)
             throw new ErrMessage("CDOL为空");
 
-        Log.d(Config.APP_ID, "P1=" + p1 + ",CDOL=" + Util.toHexString(cdol));
+        Log.d(Config.APP_ID, "P1=" + Util.toHexString(p1) + ",CDOL=" + Util.toHexString(cdol));
         // 发送GAC命令
         Iso7816.Response r = tag.generateAC(p1, cdol);
         if (!r.isOkey())
@@ -1739,7 +1740,7 @@ public abstract class StandardPboc {
         if ((berHouse.findFirst(PbocTag.APP_INTERCHANGE_PROFILE).v.getBytes()[0] & 0x04) == 0)//ICC not support Issuer Authenticate.
             throw new ErrMessage("IC卡不支持发卡行认证");
 
-        terminal.getTSI()[0] |= 0x10;//Issuer authentication was performed
+        terminal.orTSI(0, (byte) 0x10);//Issuer authentication was performed
 
         byte[] b = Arrays.copyOf(arpc, 10);
         System.arraycopy(terminal.getAuthRespCode(), 0, b, 8, 2);
@@ -1764,13 +1765,15 @@ public abstract class StandardPboc {
      * 发卡行脚本处理
      * 发卡行脚本命令/响应
      */
-    protected int issuerScriptProcess(Iso7816.StdTag tag, Terminal terminal, byte scriptType, int scriptNum, ByteBuffer[] bufs) throws IOException {
+    protected int issuerScriptProcess(Iso7816.StdTag tag, Terminal terminal, byte scriptType, ByteBuffer[] bufs) throws IOException, ErrMessage {
         Log.d(Config.APP_ID, "发卡行脚本处理");
         Iso7816.Response r;
-        int i, nErrNum = 0;
+        int nErrNum = 0;
 
-        for (i = 0; i != bufs.length; i++) {
-            r = tag.sendAPDU(bufs[i].array());
+        for (int i = 1; i <= bufs.length; i++) {
+            byte[] script = bufs[i - 1].array();
+            Log.d(Config.APP_ID, "发卡行第" + i + "条脚本:" + Util.toHexString(script));
+            r = tag.sendAPDU(script);
             if (!r.isOkey()) {
                 nErrNum++;
                 if (scriptType == 0x71) {
@@ -1780,7 +1783,9 @@ public abstract class StandardPboc {
                     terminal.orTVR(4, (byte) 0x10);//Issuer authentication failed
                     terminal.orTSI(0, (byte) 0x04);
                 }
+                throw new ErrMessage("发卡行第" + i + "条脚本异常响应码:" + r.getSw12String());
             }
+
         }
 
         return nErrNum;
@@ -1791,337 +1796,4 @@ public abstract class StandardPboc {
         byte method;
         byte condition;
     }
-
-    /**
-     * 验证ARQC
-     *
-     * @param berHouse
-     * @param bACKey
-     * @param bMACKey
-     * @param bENCKey
-     * @param bMasterKey
-     * @return ARC ARPC
-     * @throws ErrMessage
-     * @throws IllegalBlockSizeException
-     * @throws InvalidKeyException
-     * @throws BadPaddingException
-     * @throws NoSuchAlgorithmException
-     * @throws NoSuchPaddingException
-     */
-
-    byte[] verifyARQC(Iso7816.BerHouse berHouse, byte[] bACKey, byte[] bMACKey, byte[] bENCKey, boolean bMasterKey) throws ErrMessage, IllegalBlockSizeException, InvalidKeyException, BadPaddingException, NoSuchAlgorithmException, NoSuchPaddingException {
-
-        if ((bACKey != null && bACKey.length == 16) || (bMACKey != null && bMACKey.length == 16) || (bENCKey != null && bENCKey.length == 16)) {
-            // generate cardInfo
-            ClientInfo clientInfo = new ClientInfo(berHouse);
-
-            int EMVMode = this.EMVMode;
-
-            String pan = Util.toHexString(clientInfo.pan);
-            String panSeq = Util.toHexString(clientInfo.panSerial);
-            String str5A = pan.toUpperCase().replace("F", "");
-            String str5F34 = panSeq.trim();
-            String strDIV;
-            byte[] DIV = new byte[16];
-            byte[] ACKey = new byte[16], MACKey = new byte[16], ENCKey = new byte[16];
-            byte[] TACKey = new byte[16], TMACKey = new byte[16], TENCKey = new byte[16];
-
-            if (bMasterKey) { // masterKey
-                strDIV = str5A + str5F34;
-                int len = strDIV.length();
-                if (len > 16)
-                    strDIV = strDIV.substring(strDIV.length() - 16);
-                Arrays.fill(DIV, (byte) 0xFF);
-                System.arraycopy(Util.toBytes(strDIV), 0, DIV, 0, 8);
-                byte[] tmp = Util.calXOR(Arrays.copyOfRange(DIV, 8, 16), Arrays.copyOf(DIV, 8), 8);
-                System.arraycopy(tmp, 0, DIV, 8, 8);
-                //算法标识 04 使用国密算法
-                if ((EMVMode == TRANS_MODE_PBOC) && clientInfo.issuAppData[7] == (byte) 0x04) {
-//                    SM4Encrypt(ucDIV, 16, CD_SM4_ECB, NULL, ucACKey, ucTACKey, & nKeyLen);
-//                    SM4Encrypt(ucDIV, 16, CD_SM4_ECB, NULL, ucMACKey, ucTMACKey, & nKeyLen);
-//                    SM4Encrypt(ucDIV, 16, CD_SM4_ECB, NULL, ucENCKey, ucTENCKey, & nKeyLen);
-                }
-                // 国际算法
-                else {
-                    TACKey = TripleDES.encrypt(bACKey, DIV, null, null);
-                    TMACKey = TripleDES.encrypt(bMACKey, DIV, null, null);
-                    TENCKey = TripleDES.encrypt(bENCKey, DIV, null, null);
-//                    // data dataLen MODE iv, Key KeyLen outKey outKeyLen
-//                    TriDESEncrypt(ucDIV, 16, CD_DES_ECB, NULL, ucACKey, 16, ucTACKey, & nKeyLen);
-//                    TriDESEncrypt(ucDIV, 16, CD_DES_ECB, NULL, ucMACKey, 16, ucTMACKey, & nKeyLen);
-//                    TriDESEncrypt(ucDIV, 16, CD_DES_ECB, NULL, ucENCKey, 16, ucTENCKey, & nKeyLen);
-
-                }
-            } // end bMasterKey
-            else { // no masterKey
-                TACKey = bACKey;
-                TMACKey = bMACKey;
-                TENCKey = bENCKey;
-            }
-            // 分散密钥
-            Arrays.fill(DIV, (byte) 0);
-            if ((EMVMode == TRANS_MODE_VISA) && (clientInfo.issuAppData[2] == 0x0A || clientInfo.issuAppData[2] == 0x11)) { //密文版本号10或17
-                byte[] tmp = Util.calXOR(new byte[]{(byte) 0xFF, (byte) 0xFF}, clientInfo.ATC, 2);
-                System.arraycopy(tmp, 0, DIV, 14, 2);
-                ACKey = TACKey;
-                MACKey = Util.calXOR(TMACKey, DIV, 16);
-                ENCKey = Util.calXOR(TENCKey, DIV, 16);
-            } else if ((EMVMode == TRANS_MODE_PBOC) && clientInfo.issuAppData[7] == 0x04)//算法标识 04 使用国密算法
-            {
-                byte[] tmp = Util.calXOR(new byte[]{(byte) 0xFF, (byte) 0xFF}, clientInfo.ATC, 2);
-                System.arraycopy(tmp, 0, DIV, 14, 2);
-//                SM4Encrypt(ucDIV, 16, CD_SM4_ECB, NULL, ucTACKey, ucACKey, & nKeyLen);
-//                SM4Encrypt(ucDIV, 16, CD_SM4_ECB, NULL, ucTMACKey, ucMACKey, & nKeyLen);
-//                SM4Encrypt(ucDIV, 16, CD_SM4_ECB, NULL, ucTENCKey, ucENCKey, & nKeyLen);
-            } else if ((EMVMode == TRANS_MODE_MASTERCARD) && (clientInfo.issuAppData[1] == 0x10 || clientInfo.issuAppData[1] == 0x11)) {
-                //MasterCard Proprietary SKD 等文档
-                System.arraycopy(clientInfo.ATC, 0, DIV, 0, 2);
-                System.arraycopy(clientInfo.unpredictNum, 0, DIV, 4, 4);
-                System.arraycopy(DIV, 0, DIV, 8, 8);
-                DIV[2] = (byte) 0xF0;
-                DIV[10] = (byte) 0x0F;
-                ACKey = TripleDES.encrypt(TACKey, DIV, null, null);
-
-                Arrays.fill(DIV, (byte) 0);
-                System.arraycopy(clientInfo.appCrypt, 0, DIV, 0, 8);
-                System.arraycopy(DIV, 0, DIV, 8, 8);
-                DIV[2] = (byte) 0xF0;
-                DIV[10] = (byte) 0x0F;
-                MACKey = TripleDES.encrypt(TMACKey, DIV, null, null);
-                ENCKey = TripleDES.encrypt(TENCKey, DIV, null, null);
-            } else if ((EMVMode == TRANS_MODE_PBOC) && (clientInfo.issuAppData[2] == 0x01 || clientInfo.issuAppData[2] == 0x17)) {
-                byte[] tmp = Util.calXOR(new byte[]{(byte) 0xFF, (byte) 0xFF}, clientInfo.ATC, 2);
-                System.arraycopy(tmp, 0, DIV, 14, 2);
-                ACKey = TripleDES.encrypt(TACKey, DIV, null, null);
-                MACKey = TripleDES.encrypt(TMACKey, DIV, null, null);
-                ENCKey = TripleDES.encrypt(TENCKey, DIV, null, null);
-            } else {
-                //EMV CSK
-                System.arraycopy(clientInfo.ATC, 0, DIV, 0, 2);
-                System.arraycopy(DIV, 0, DIV, 8, 2);
-                DIV[2] = (byte) 0xF0;
-                DIV[10] = (byte) 0x0F;
-                ACKey = TripleDES.encrypt(TACKey, DIV, null, null);
-
-                Arrays.fill(DIV, (byte) 0);
-                System.arraycopy(clientInfo.appCrypt, 0, DIV, 0, 8);
-                System.arraycopy(DIV, 0, DIV, 8, 8);
-                DIV[2] = (byte) 0xF0;
-                DIV[10] = (byte) 0x0F;
-                MACKey = TripleDES.encrypt(TMACKey, DIV, null, null);
-                ENCKey = TripleDES.encrypt(TENCKey, DIV, null, null);
-            }
-            int nDataLen = 0;
-            byte[] ucData = new byte[512];
-            byte[] ARQC = new byte[8];
-            byte[] iv = {(byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 0,};
-            // 密文版号
-            byte crypto = clientInfo.issuAppData[2];
-            Log.e(Config.APP_ID, Util.toHexString(clientInfo.issuAppData));
-            Log.d(Config.APP_ID, "密文版本号=" + Util.toHexString(crypto));
-            // 密文版号:17
-            if (crypto == (byte) 0x11) {
-                nDataLen = 0;
-                System.arraycopy(clientInfo.amtAuthNum, 0, ucData, nDataLen, clientInfo.amtAuthNum.length);
-                nDataLen += clientInfo.amtAuthNum.length;
-
-                System.arraycopy(clientInfo.unpredictNum, 0, ucData, nDataLen, clientInfo.unpredictNum.length);
-                nDataLen += clientInfo.unpredictNum.length;
-
-                System.arraycopy(clientInfo.ATC, 0, ucData, nDataLen, clientInfo.ATC.length);
-                nDataLen += clientInfo.ATC.length;
-
-                System.arraycopy(clientInfo.issuAppData, 4, ucData, nDataLen, 1);
-                nDataLen += 1;
-
-                //算法标识 04 使用国密算法
-                if (clientInfo.issuAppData[7] == 0x04) {
-                    //SM4MAC(ucData, nDataLen, ISO_PADDING_2, CD_SM4_MAC_16, NULL, ucACKey, ucARQC);
-                } else { // 国际算法
-                    if (EMVMode == TRANS_MODE_MASTERCARD) { // MASTERCARD
-                        nDataLen = 0;
-                        System.arraycopy(clientInfo.amtAuthNum, 0, ucData, nDataLen, clientInfo.amtAuthNum.length);
-                        nDataLen += clientInfo.amtAuthNum.length;
-
-                        System.arraycopy(clientInfo.amtOtherNum, 0, ucData, nDataLen, clientInfo.amtOtherNum.length);
-                        nDataLen += clientInfo.amtOtherNum.length;
-
-                        System.arraycopy(clientInfo.countryCode, 0, ucData, nDataLen, clientInfo.countryCode.length);
-                        nDataLen += clientInfo.countryCode.length;
-
-                        System.arraycopy(clientInfo.TVR, 0, ucData, nDataLen, clientInfo.TVR.length);
-                        nDataLen += clientInfo.TVR.length;
-
-                        System.arraycopy(clientInfo.transCurcyCode, 0, ucData, nDataLen, clientInfo.transCurcyCode.length);
-                        nDataLen += clientInfo.transCurcyCode.length;
-
-                        System.arraycopy(clientInfo.transDate, 0, ucData, nDataLen, clientInfo.transDate.length); //交易日期
-                        nDataLen += clientInfo.transDate.length;
-
-                        ucData[nDataLen] = clientInfo.transTypeValue;
-                        nDataLen += 1;
-
-                        System.arraycopy(clientInfo.unpredictNum, 0, ucData, nDataLen, clientInfo.unpredictNum.length);
-                        nDataLen += clientInfo.unpredictNum.length;
-
-                        System.arraycopy(clientInfo.AIP, 0, ucData, nDataLen, clientInfo.AIP.length);
-                        nDataLen += clientInfo.AIP.length;
-
-                        System.arraycopy(clientInfo.ATC, 0, ucData, nDataLen, clientInfo.ATC.length);
-                        nDataLen += clientInfo.ATC.length;
-
-                        System.arraycopy(clientInfo.issuAppData, 2, ucData, nDataLen, 6);
-                        nDataLen += 6;
-
-                        ARQC = TripleDES.mac(ACKey, ACKey.length, ucData, nDataLen, iv, 8, 0);
-                    } else if (EMVMode == TRANS_MODE_PBOC || EMVMode == TRANS_MODE_VISA) {
-                        ARQC = TripleDES.mac(ACKey, ACKey.length, ucData, nDataLen, iv, 8, 0);
-                    } else {
-                        // Nothing done
-                    }
-                }
-
-            }
-            // 密文版本号:10
-            else if (crypto == (byte) 0x0A) {
-                nDataLen = 0;
-                System.arraycopy(clientInfo.amtAuthNum, 0, ucData, nDataLen, clientInfo.amtAuthNum.length);
-                nDataLen += clientInfo.amtAuthNum.length;
-
-                System.arraycopy(clientInfo.amtOtherNum, 0, ucData, nDataLen, clientInfo.amtOtherNum.length);
-                nDataLen += clientInfo.amtOtherNum.length;
-
-                System.arraycopy(clientInfo.countryCode, 0, ucData, nDataLen, clientInfo.countryCode.length);
-                nDataLen += clientInfo.countryCode.length;
-
-                System.arraycopy(clientInfo.TVR, 0, ucData, nDataLen, clientInfo.TVR.length);
-                nDataLen += clientInfo.TVR.length;
-
-                System.arraycopy(clientInfo.transCurcyCode, 0, ucData, nDataLen, clientInfo.transCurcyCode.length);
-                nDataLen += clientInfo.transCurcyCode.length;
-
-                System.arraycopy(clientInfo.transDate, 0, ucData, nDataLen, clientInfo.transDate.length); //交易日期
-                nDataLen += clientInfo.transDate.length;
-
-                ucData[nDataLen] = clientInfo.transTypeValue;
-                nDataLen += 1;
-
-                System.arraycopy(clientInfo.unpredictNum, 0, ucData, nDataLen, clientInfo.unpredictNum.length);
-                nDataLen += clientInfo.unpredictNum.length;
-
-                System.arraycopy(clientInfo.AIP, 0, ucData, nDataLen, clientInfo.AIP.length);
-                nDataLen += clientInfo.AIP.length;
-
-                System.arraycopy(clientInfo.ATC, 0, ucData, nDataLen, clientInfo.ATC.length);
-                nDataLen += clientInfo.ATC.length;
-
-
-                if (clientInfo.issuAppData[7] == 0x04) { //算法标识 04 使用国密算法
-
-                    //SM4MAC(ucData, nDataLen, ISO_PADDING_2, CD_SM4_MAC_16, NULL, ucACKey, ucARQC);
-                } else // 国际算法
-                {
-                    if (EMVMode == TRANS_MODE_PBOC || EMVMode == TRANS_MODE_VISA) {
-                        System.arraycopy(clientInfo.issuAppData, 3, ucData, nDataLen, 4);
-                        nDataLen += 4;
-                        ARQC = TripleDES.mac(ACKey, ACKey.length, ucData, nDataLen, iv, 8, 0);
-                    } else if (EMVMode == TRANS_MODE_MASTERCARD) {
-                        System.arraycopy(clientInfo.issuAppData, 2, ucData, nDataLen, 6);
-                        nDataLen += 6;
-                        ARQC = TripleDES.mac(ACKey, ACKey.length, ucData, nDataLen, iv, 8, 0);
-                    } else {
-                        // Nothing done
-                    }
-                }
-            } else {
-                nDataLen = 0;
-                System.arraycopy(clientInfo.amtAuthNum, 0, ucData, nDataLen, clientInfo.amtAuthNum.length);
-                nDataLen += clientInfo.amtAuthNum.length;
-
-                System.arraycopy(clientInfo.amtOtherNum, 0, ucData, nDataLen, clientInfo.amtOtherNum.length);
-                nDataLen += clientInfo.amtOtherNum.length;
-
-                System.arraycopy(clientInfo.countryCode, 0, ucData, nDataLen, clientInfo.countryCode.length);
-                nDataLen += clientInfo.countryCode.length;
-
-                System.arraycopy(clientInfo.TVR, 0, ucData, nDataLen, clientInfo.TVR.length);
-                nDataLen += clientInfo.TVR.length;
-
-                System.arraycopy(clientInfo.transCurcyCode, 0, ucData, nDataLen, clientInfo.transCurcyCode.length);
-                nDataLen += clientInfo.transCurcyCode.length;
-
-                System.arraycopy(clientInfo.transDate, 0, ucData, nDataLen, clientInfo.transDate.length); //交易日期
-                nDataLen += clientInfo.transDate.length;
-
-                ucData[nDataLen] = clientInfo.transTypeValue;
-                nDataLen += 1;
-
-                System.arraycopy(clientInfo.unpredictNum, 0, ucData, nDataLen, clientInfo.unpredictNum.length);
-                nDataLen += clientInfo.unpredictNum.length;
-
-                System.arraycopy(clientInfo.AIP, 0, ucData, nDataLen, clientInfo.AIP.length);
-                nDataLen += clientInfo.AIP.length;
-
-                System.arraycopy(clientInfo.ATC, 0, ucData, nDataLen, clientInfo.ATC.length);
-                nDataLen += clientInfo.ATC.length;
-
-                System.arraycopy(clientInfo.issuAppData, 3, ucData, nDataLen, 4);
-                nDataLen += 4;
-
-                if ((EMVMode == TRANS_MODE_PBOC) && clientInfo.issuAppData[7] == 0x04)//算法标识 04 使用国密算法
-                {
-                    //SM4MAC(ucData, nDataLen, ISO_PADDING_2, CD_SM4_MAC_16, NULL, ucACKey, ucARQC);
-                } else {
-                    ARQC = TripleDES.mac(ACKey, ACKey.length, ucData, nDataLen, iv, 8, 0);
-                }
-            }
-
-            if (!Arrays.equals(ARQC, clientInfo.appCrypt)) {
-                throw new ErrMessage("ARQC与应用密文不匹配" + ",ARQC="+Util.toHexString(ARQC)+",应用密文="+Util.toHexString(clientInfo.appCrypt));
-            }
-
-//            if (clientInfo.cryptInfo == 0x80) {
-            //验证ARQC通过，保存密钥
-//                memcpy(m_ucACKey, ucTACKey, 16);
-//                memcpy(m_ucMACKey, ucTMACKey, 16);
-//                memcpy(m_ucENCKey, ucTENCKey, 16);
-//                memcpy(m_ucSACKey, ucACKey, 16);
-//                memcpy(m_ucSMACKey, ucMACKey, 16);
-//                memcpy(m_ucSENCKey, ucENCKey, 16);
-//                m_bVerifyAC = TRUE;
-//            }
-
-            byte[] ARC = {0x30, 0x30};
-            byte[] ArcBuf = new byte[8];
-            Arrays.fill(ArcBuf, (byte) 0);
-            System.arraycopy(ARC, 0, ArcBuf, 0, 2);
-
-            byte[] tmp = new byte[8];
-            for (int i = 0; i < 8; i++) {
-                tmp[i] = (byte) (clientInfo.appCrypt[i] ^ ArcBuf[i]);
-            }
-            byte[] ARPC = new byte[8];
-            if (clientInfo.issuAppData[7] == 0x04)//算法标识 04 使用国密算法
-            {
-                //SM4Encrypt(ucARPCSrc, 8, CD_SM4_ECB, NULL, ucACKey, ucARPC, & nDataLen);
-            } else { // 国际算法
-                if (EMVMode == TRANS_MODE_MASTERCARD) {
-                    ARPC = TripleDES.encrypt(TACKey, tmp, null, null);
-//                    TriDESEncrypt(ucARPCSrc, 8, CD_DES_ECB, NULL, ucACKey, 16, ucARPC, & nDataLen);
-                } else if (EMVMode == TRANS_MODE_PBOC || EMVMode == TRANS_MODE_VISA) {
-                    ARPC = TripleDES.encrypt(ACKey, tmp, null, null);
-//                    TriDESEncrypt(ucARPCSrc, 8, CD_DES_ECB, NULL, ucACKey, 16, ucARPC, & nDataLen);
-                } else {
-                    // Nothing done
-                }
-            }
-            byte[] result = new byte[10];
-            System.arraycopy(ARC, 0, result, 0, 2);
-            System.arraycopy(ARPC, 0, result, 2, 8);
-
-            return result;
-        }
-        return null;
-    }
-
 }

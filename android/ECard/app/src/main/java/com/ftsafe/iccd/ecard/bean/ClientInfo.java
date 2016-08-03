@@ -1,4 +1,4 @@
-package com.ftsafe.iccd.ecard.reader.pboc;
+package com.ftsafe.iccd.ecard.bean;
 
 import com.ftsafe.iccd.ecard.pojo.PbocTag;
 

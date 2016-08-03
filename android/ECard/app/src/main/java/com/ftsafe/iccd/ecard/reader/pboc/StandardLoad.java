@@ -126,7 +126,7 @@ public class StandardLoad extends com.ftsafe.iccd.ecard.reader.pboc.StandardPboc
             // 终端行为分析
             /*--------------------------------------------------------------*/
             int transType = termActionAnalyze(berHouse, terminal);
-            Log.e(Config.APP_ID, "终端决定交易类型:" + transType);
+            Log.d(Config.APP_ID, "终端决定交易类型:" + transType);
             rsp = gacProcess(berHouse, terminal, tag, GAC_1, transType);
             if (!rsp.isOkey())
                 throw new ErrMessage("GAC异常响应:" + rsp.getSw12String());
@@ -182,9 +182,9 @@ public class StandardLoad extends com.ftsafe.iccd.ecard.reader.pboc.StandardPboc
             /*--------------------------------------------------------------*/
             if (result != null && result.length == 10) {
                 byte[] arc = Arrays.copyOfRange(result, 0, 2);
-                Log.e(Config.APP_ID, "ARC=" + Util.toHexString(arc));
+                Log.d(Config.APP_ID, "ARC=" + Util.toHexString(arc));
                 byte[] arpc = Arrays.copyOfRange(result, 2, 10);
-                Log.e(Config.APP_ID, "ARPC=" + Util.toHexString(arpc));
+                Log.d(Config.APP_ID, "ARPC=" + Util.toHexString(arpc));
                 // 发卡行认证
                 rsp = issuerVerify(tag, berHouse, terminal, arc, arpc);
                 if (!rsp.isOkey())
@@ -234,6 +234,7 @@ public class StandardLoad extends com.ftsafe.iccd.ecard.reader.pboc.StandardPboc
             }
 
             if (value != null) {
+                Log.d(Config.APP_ID, "构建参数:TAG=" + Util.toHexString(berT.getBytes()) + ",Value=" + Util.toHexString(value));
                 tlv = new BerTLV(berT, new Iso7816.BerL(value.length), new Iso7816.BerV(value));
                 out.add(tlv);
             }

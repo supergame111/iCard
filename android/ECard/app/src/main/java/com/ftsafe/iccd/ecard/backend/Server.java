@@ -56,9 +56,9 @@ public class Server {
             buf.put(data);
             bufLen += data.length;
             byte[] msg = Arrays.copyOfRange(buf.array(), 0, bufLen);
-            Log.e(Config.APP_ID, "构建脚本，msg=" + Util.toHexString(msg));
+            Log.d(Config.APP_ID, "构建脚本，msg=" + Util.toHexString(msg));
             byte[] mac = DES2.TripleDES.mac(MACSessionKey, 16, msg, msg.length, iv, 4, DES2.TripleDES.PADDING_80);
-            Log.e(Config.APP_ID, "构建脚本，mac=" + Util.toHexString(mac));
+            Log.d(Config.APP_ID, "构建脚本，mac=" + Util.toHexString(mac));
 
             // 封装脚本
             buf.clear();
@@ -78,14 +78,14 @@ public class Server {
     byte[] calculateMoney(byte[] amtAuthNum) throws ErrMessage {
         if (amtAuthNum != null) {
             byte[] issAppData = Arrays.copyOfRange(mClientInfo.issuAppData, 8, mClientInfo.issuAppData.length);
-            Log.e(Config.APP_ID, "发卡行自定义数据=" + Util.toHexString(issAppData));
-            if (issAppData[1] == (byte) 0x01) {
+            Log.d(Config.APP_ID, "发卡行自定义数据=" + Util.toHexString(issAppData));
+            if (issAppData[0] == (byte) 0x0A && issAppData[1] == (byte) 0x01) {
                 final int aau = Integer.valueOf(Util.toHexString(amtAuthNum));
-                Log.e(Config.APP_ID, "授权金额=" + aau);
+                Log.d(Config.APP_ID, "授权金额=" + aau);
                 final int remain = Integer.valueOf(Util.toHexString(Arrays.copyOfRange(issAppData, 2, 7)));
-                Log.e(Config.APP_ID, "卡内余额=" + remain);
+                Log.d(Config.APP_ID, "卡内余额=" + remain);
                 final int total = aau + remain;
-                Log.e(Config.APP_ID, "总金额=" + total);
+                Log.d(Config.APP_ID, "总金额=" + total);
 
                 return Util.toBytes(String.format("%012d", total));
             } else
@@ -117,16 +117,16 @@ public class Server {
             throws ErrMessage, IllegalBlockSizeException, InvalidKeyException, BadPaddingException, NoSuchAlgorithmException, NoSuchPaddingException {
 
         if ((bACKey != null && bACKey.length == 16) || (bMACKey != null && bMACKey.length == 16) || (bENCKey != null && bENCKey.length == 16)) {
-            Log.e(Config.APP_ID, "主密钥");
-            Log.e(Config.APP_ID, "isIssuerMasterKey=" + isIssuerMasterKey + ",AC=" + Util.toHexString(bACKey));
-            Log.e(Config.APP_ID, "isIssuerMasterKey=" + isIssuerMasterKey + ",MAC=" + Util.toHexString(bMACKey));
-            Log.e(Config.APP_ID, "isIssuerMasterKey=" + isIssuerMasterKey + ",ENC=" + Util.toHexString(bENCKey));
+            Log.d(Config.APP_ID, "主密钥");
+            Log.d(Config.APP_ID, "isIssuerMasterKey=" + isIssuerMasterKey + ",AC=" + Util.toHexString(bACKey));
+            Log.d(Config.APP_ID, "isIssuerMasterKey=" + isIssuerMasterKey + ",MAC=" + Util.toHexString(bMACKey));
+            Log.d(Config.APP_ID, "isIssuerMasterKey=" + isIssuerMasterKey + ",ENC=" + Util.toHexString(bENCKey));
 
             // generate cardInfo
             mClientInfo = new ClientInfo(berHouse);
 
             final int EMVMode = emvMode;
-            Log.e(Config.APP_ID, "EMVMode=" + EMVMode);
+            Log.d(Config.APP_ID, "EMVMode=" + EMVMode);
 
             String pan = Util.toHexString(mClientInfo.pan);
             String panSeq = Util.toHexString(mClientInfo.panSerial);
@@ -165,10 +165,10 @@ public class Server {
                 TMACKey = bMACKey;
                 TENCKey = bENCKey;
             }
-            Log.e(Config.APP_ID, "子密钥");
-            Log.e(Config.APP_ID, "AC=" + Util.toHexString(bACKey) + ",分散因子=" + Util.toHexString(DIV));
-            Log.e(Config.APP_ID, "MAC=" + Util.toHexString(bMACKey) + ",分散因子=" + Util.toHexString(DIV));
-            Log.e(Config.APP_ID, "ENC=" + Util.toHexString(bENCKey) + ",分散因子=" + Util.toHexString(DIV));
+            Log.d(Config.APP_ID, "子密钥");
+            Log.d(Config.APP_ID, "AC=" + Util.toHexString(bACKey) + ",分散因子=" + Util.toHexString(DIV));
+            Log.d(Config.APP_ID, "MAC=" + Util.toHexString(bMACKey) + ",分散因子=" + Util.toHexString(DIV));
+            Log.d(Config.APP_ID, "ENC=" + Util.toHexString(bENCKey) + ",分散因子=" + Util.toHexString(DIV));
 
             // 计算过程密钥
             Arrays.fill(DIV, (byte) 0);
@@ -180,7 +180,7 @@ public class Server {
             byte[] issuerAppData = mClientInfo.issuAppData;
             if (issuerAppData == null)
                 throw new ErrMessage("发卡行应用数据为空");
-            Log.e(Config.APP_ID, "发卡行应用数据=" + Util.toHexString(issuerAppData));
+            Log.d(Config.APP_ID, "发卡行应用数据=" + Util.toHexString(issuerAppData));
             // 密文版号
             byte crypto = issuerAppData[2];
             Log.d(Config.APP_ID, "密文版本号=" + Util.toHexString(crypto));
@@ -195,11 +195,11 @@ public class Server {
                     System.arraycopy(mClientInfo.ATC, 0, DIV, 6, 2);
 
                     ACKey = DES2.TripleDES.encrypt(TACKey, DIV, null, DES2.TripleDES.DESEDE_ECB_NOPADDING);
-                    Log.e(Config.APP_ID, "过程密钥AC=" + Util.toHexString(ACKey) + ",分散因子=" + Util.toHexString(DIV));
+                    Log.d(Config.APP_ID, "过程密钥AC=" + Util.toHexString(ACKey) + ",分散因子=" + Util.toHexString(DIV));
                     MACKey = DES2.TripleDES.encrypt(TMACKey, DIV, null, DES2.TripleDES.DESEDE_ECB_NOPADDING);
-                    Log.e(Config.APP_ID, "过程密钥MAC=" + Util.toHexString(MACKey) + ",分散因子=" + Util.toHexString(DIV));
+                    Log.d(Config.APP_ID, "过程密钥MAC=" + Util.toHexString(MACKey) + ",分散因子=" + Util.toHexString(DIV));
                     ENCKey = DES2.TripleDES.encrypt(TENCKey, DIV, null, DES2.TripleDES.DESEDE_ECB_NOPADDING);
-                    Log.e(Config.APP_ID, "过程密钥ENC=" + Util.toHexString(ENCKey) + ",分散因子=" + Util.toHexString(DIV));
+                    Log.d(Config.APP_ID, "过程密钥ENC=" + Util.toHexString(ENCKey) + ",分散因子=" + Util.toHexString(DIV));
                 } else {
                     throw new ErrMessage("PBOC不支持该密文版本" + Util.toHexString(crypto));
                 }
@@ -210,11 +210,11 @@ public class Server {
 //                byte[] tmp = Util.calXOR(new byte[]{(byte) 0xFF, (byte) 0xFF}, mClientInfo.ATC, 2);
 //                System.arraycopy(tmp, 0, DIV, 14, 2);
 //                ACKey = TACKey;
-//                Log.e(Config.APP_ID, "过程密钥AC=" + Util.toHexString(ACKey) + ",分散因子=" + Util.toHexString(DIV));
+//                Log.d(Config.APP_ID, "过程密钥AC=" + Util.toHexString(ACKey) + ",分散因子=" + Util.toHexString(DIV));
 //                MACKey = Util.calXOR(TMACKey, DIV, 16);
-//                Log.e(Config.APP_ID, "过程密钥MAC=" + Util.toHexString(MACKey) + ",分散因子=" + Util.toHexString(DIV));
+//                Log.d(Config.APP_ID, "过程密钥MAC=" + Util.toHexString(MACKey) + ",分散因子=" + Util.toHexString(DIV));
 //                ENCKey = Util.calXOR(TENCKey, DIV, 16);
-//                Log.e(Config.APP_ID, "过程密钥ENC=" + Util.toHexString(ENCKey) + ",分散因子=" + Util.toHexString(DIV));
+//                Log.d(Config.APP_ID, "过程密钥ENC=" + Util.toHexString(ENCKey) + ",分散因子=" + Util.toHexString(DIV));
 //            } else if ((EMVMode == TRANS_MODE_PBOC) && issuerAppData[7] == 0x04)//算法标识 04 使用国密算法
 //            {
 //                byte[] tmp = Util.calXOR(new byte[]{(byte) 0xFF, (byte) 0xFF}, mClientInfo.ATC, 2);
@@ -230,7 +230,7 @@ public class Server {
 //                DIV[2] = (byte) 0xF0;
 //                DIV[10] = (byte) 0x0F;
 //                ACKey = DES2.TripleDES.encrypt(TACKey, DIV, null, DES2.TripleDES.DESEDE_ECB_NOPADDING);
-//                Log.e(Config.APP_ID, "过程密钥AC=" + Util.toHexString(ACKey) + ",分散因子=" + Util.toHexString(DIV));
+//                Log.d(Config.APP_ID, "过程密钥AC=" + Util.toHexString(ACKey) + ",分散因子=" + Util.toHexString(DIV));
 //
 //                Arrays.fill(DIV, (byte) 0);
 //                System.arraycopy(mClientInfo.appCrypt, 0, DIV, 0, 8);
@@ -238,9 +238,9 @@ public class Server {
 //                DIV[2] = (byte) 0xF0;
 //                DIV[10] = (byte) 0x0F;
 //                MACKey = DES2.TripleDES.encrypt(TMACKey, DIV, null, DES2.TripleDES.DESEDE_ECB_NOPADDING);
-//                Log.e(Config.APP_ID, "过程密钥MAC=" + Util.toHexString(MACKey) + ",分散因子=" + Util.toHexString(DIV));
+//                Log.d(Config.APP_ID, "过程密钥MAC=" + Util.toHexString(MACKey) + ",分散因子=" + Util.toHexString(DIV));
 //                ENCKey = DES2.TripleDES.encrypt(TENCKey, DIV, null, DES2.TripleDES.DESEDE_ECB_NOPADDING);
-//                Log.e(Config.APP_ID, "过程密钥ENC=" + Util.toHexString(ENCKey) + ",分散因子=" + Util.toHexString(DIV));
+//                Log.d(Config.APP_ID, "过程密钥ENC=" + Util.toHexString(ENCKey) + ",分散因子=" + Util.toHexString(DIV));
 //            } else {
 //                //EMV CSK
 //                System.arraycopy(mClientInfo.ATC, 0, DIV, 0, 2);
@@ -248,7 +248,7 @@ public class Server {
 //                DIV[2] = (byte) 0xF0;
 //                DIV[10] = (byte) 0x0F;
 //                ACKey = DES2.TripleDES.encrypt(TACKey, DIV, null, DES2.TripleDES.DESEDE_ECB_NOPADDING);
-//                Log.e(Config.APP_ID, "过程密钥AC=" + Util.toHexString(ACKey) + ",分散因子=" + Util.toHexString(DIV));
+//                Log.d(Config.APP_ID, "过程密钥AC=" + Util.toHexString(ACKey) + ",分散因子=" + Util.toHexString(DIV));
 //
 //                Arrays.fill(DIV, (byte) 0);
 //                System.arraycopy(mClientInfo.appCrypt, 0, DIV, 0, 8);
@@ -256,9 +256,9 @@ public class Server {
 //                DIV[2] = (byte) 0xF0;
 //                DIV[10] = (byte) 0x0F;
 //                MACKey = DES2.TripleDES.encrypt(TMACKey, DIV, null, DES2.TripleDES.DESEDE_ECB_NOPADDING);
-//                Log.e(Config.APP_ID, "过程密钥MAC=" + Util.toHexString(MACKey) + ",分散因子=" + Util.toHexString(DIV));
+//                Log.d(Config.APP_ID, "过程密钥MAC=" + Util.toHexString(MACKey) + ",分散因子=" + Util.toHexString(DIV));
 //                ENCKey = DES2.TripleDES.encrypt(TENCKey, DIV, null, DES2.TripleDES.DESEDE_ECB_NOPADDING);
-//                Log.e(Config.APP_ID, "过程密钥ENC=" + Util.toHexString(ENCKey) + ",分散因子=" + Util.toHexString(DIV));
+//                Log.d(Config.APP_ID, "过程密钥ENC=" + Util.toHexString(ENCKey) + ",分散因子=" + Util.toHexString(DIV));
 //            }
 
             // 计算ARQC
@@ -303,7 +303,7 @@ public class Server {
                 nDataLen += 4;
 
                 byte[] msg = Arrays.copyOf(ucData, nDataLen);
-                Log.e(Config.APP_ID, "计算应用密文,ACKey=" + Util.toHexString(ACKey) + ",InputData=" + Util.toHexString(msg));
+                Log.d(Config.APP_ID, "计算应用密文,ACKey=" + Util.toHexString(ACKey) + ",InputData=" + Util.toHexString(msg));
                 ARQC = DES2.TripleDES.mac(ACKey, ACKey.length, msg, msg.length, iv, 8, DES2.TripleDES.PADDING_80);
                 if (issuerAppData[7] == (byte) 0x04) {
                     // 国密
@@ -326,7 +326,7 @@ public class Server {
                 nDataLen += 1;
 
                 byte[] msg = Arrays.copyOf(ucData, nDataLen);
-                Log.e(Config.APP_ID, "计算应用密文,AC Key=" + Util.toHexString(ACKey) + ",Input Data=" + Util.toHexString(msg));
+                Log.d(Config.APP_ID, "计算应用密文,AC Key=" + Util.toHexString(ACKey) + ",Input Data=" + Util.toHexString(msg));
                 ARQC = DES2.TripleDES.mac(ACKey, ACKey.length, msg, msg.length, iv, 8, DES2.TripleDES.PADDING_80);
                 if (issuerAppData[7] == (byte) 0x04) {
                     // 国密
@@ -490,7 +490,7 @@ public class Server {
 //                    //SM4MAC(ucData, nDataLen, ISO_PADDING_2, CD_SM4_MAC_16, NULL, ucACKey, ucARQC);
 //                } else {
 //                    byte[] msg = Arrays.copyOf(ucData, nDataLen);
-//                    Log.e(Config.APP_ID, "计算应用密文,AC Key=" + Util.toHexString(ACKey) + ",Input Data" + Util.toHexString(msg));
+//                    Log.d(Config.APP_ID, "计算应用密文,AC Key=" + Util.toHexString(ACKey) + ",Input Data" + Util.toHexString(msg));
 //                    ARQC = DES2.TripleDES.mac(ACKey, ACKey.length, msg, msg.length, iv, 8, TripleDES.PADDING_80);
 //                }
 //            }

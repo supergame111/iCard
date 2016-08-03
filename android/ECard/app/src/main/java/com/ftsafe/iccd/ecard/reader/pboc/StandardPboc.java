@@ -326,7 +326,7 @@ public abstract class StandardPboc {
         buff.put((byte) 0x83).put((byte) 0x00);
         try {
             final byte[] pdol = tlvs.findFirst((short) 0x9F38).v.getBytes();
-            //Log.e(Config.APP_ID, "9F38="+Util.toHexString(pdol));
+            //Log.d(Config.APP_ID, "9F38="+Util.toHexString(pdol));
             ArrayList<Iso7816.BerTLV> list = Iso7816.BerTLV.extractOptionList(pdol);
             for (Iso7816.BerTLV tlv : list) {
                 final int tag = tlv.t.toInt();
@@ -396,14 +396,14 @@ public abstract class StandardPboc {
             final Iso7816.BerT tag = tlv.t;
             final int len = tlv.l.toInt();
             final byte[] value = terminal.getValue(tag.getBytes());
-            Log.e(Config.APP_ID, "Tag=" + Util.toHexString(tag.getBytes()) + ",Len=" + len + ",Value=" + Util.toHexString(value));
+            Log.d(Config.APP_ID, "Tag=" + Util.toHexString(tag.getBytes()) + ",Len=" + len + ",Value=" + Util.toHexString(value));
             if (value != null) {
                 buildPDO(buff, len, value);
             }
         }
         // 更新数据长度
         //buff.put(1, (byte) (buff.position() - 2));
-        Log.e(Config.APP_ID, "buff len=" + buff.position());
+        Log.d(Config.APP_ID, "buff len=" + buff.position());
         return Arrays.copyOfRange(buff.array(), 0, buff.position());
 //
 //        int index = 0, nLen, outLen = 0;
@@ -1663,8 +1663,8 @@ public abstract class StandardPboc {
             if (len == gacresp.length - 2)
                 ucPrimData = Arrays.copyOfRange(resp.getBytes(), 2, len);
 
-            //Log.e(Config.APP_ID, Util.toHexString(resp.getBytes()));
-            //Log.e(Config.APP_ID, Util.toHexString(ucPrimData));
+            //Log.d(Config.APP_ID, Util.toHexString(resp.getBytes()));
+            //Log.d(Config.APP_ID, Util.toHexString(ucPrimData));
             // 密文信息数据 CID
             berHouse.add(new Iso7816.BerT(PbocTag.CRYPTOGRAM_INFO), new byte[]{ucPrimData[0]});
             // 应用交易计数器 ATC
@@ -1672,7 +1672,7 @@ public abstract class StandardPboc {
             // 应用密文 AC
             berHouse.add(new Iso7816.BerT(PbocTag.APP_CRYPTOGRAM), Arrays.copyOfRange(ucPrimData, 3, 11));
             // 发卡行应用数据
-            berHouse.add(new Iso7816.BerT(PbocTag.ISSUER_APP_DATA), Arrays.copyOfRange(ucPrimData, 11, len - 2));
+            berHouse.add(new Iso7816.BerT(PbocTag.ISSUER_APP_DATA), Arrays.copyOfRange(ucPrimData, 11, len));
 
         } else if (gacresp[0] == (byte) 0x77) {
             parseData(resp.getBytes(), berHouse, GAC_1);
@@ -1680,7 +1680,7 @@ public abstract class StandardPboc {
             throw new ErrMessage("联机处理:错误的GAC响应数据:" + Util.toHexString(gacresp));
 
         byte cryptInfo = berHouse.findFirst(PbocTag.CRYPTOGRAM_INFO).v.getBytes()[0];
-        //Log.e(Config.APP_ID, Util.toHexString(cryptInfo));
+        //Log.d(Config.APP_ID, Util.toHexString(cryptInfo));
         byte[] AIP = berHouse.findFirst(PbocTag.APP_INTERCHANGE_PROFILE).v.getBytes();
         Iso7816.BerTLV signDynAppDataTlv = berHouse.findFirst(PbocTag.SIGN_DYN_APP_DATA);
         if ((cryptInfo & 0x80) == 0x80) {

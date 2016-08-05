@@ -11,47 +11,131 @@ import ftsafe.reader.tech.Iso7816;
  */
 public class Terminal {
 
+    private Terminal() {
+    }
+
+    private static Terminal mTerminal = null;
+
+    public static Terminal getTermianl() {
+        if (mTerminal == null)
+            mTerminal = getInstance();
+        return mTerminal;
+    }
+
+    public static Terminal getInstance() {
+
+        Terminal terminal = new Terminal();
+        terminal.map = new HashMap<>(100);
+        // 终端类型 9F35
+        terminal.setTermType((byte) 0x32);
+        // 终端国家代码 9F1A
+        terminal.setCountryCode(new byte[]{(byte) 0x01, (byte) 0x56});
+        // 电子现金终端支持指示器 9F7A 0:no 1:yes
+        terminal.setVLPIndicator((byte) 0x01);
+        // 电子现金终端交易限额 9F7B
+        terminal.setvLPTransLimit(new byte[]{(byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x10, (byte) 0x00, (byte) 0x00});
+        // capp 支持 DF60
+        terminal.setTermCappFlag((byte) 0x00);
+        // 设置国密支持 DF69
+        terminal.setSMAlgSupp((byte) 0x00);
+        // TVR 95
+        terminal.setTVR(new byte[]{(byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00});
+        // 商户名称 9F4E
+        terminal.setMerchantName(new byte[]{});
+        // 不可预知数 9F37
+        terminal.setUnpredictNum(Util.getRandom(4));
+        // 交易日期 9A
+        terminal.setTransDate(Util.getSysDate(3));
+        // 交易时间 9F21
+        terminal.setTransTime(Util.getSysTime(0));
+
+        return terminal;
+    }
+
     // 终端参数初始化，在EMV_InitialApp之前调用
     // 参数顺序：9F7A,9F66,9C,9F02,9F03,DF60,DF69
-    public Terminal(byte vlpIndicator, byte[] termTransAtr, byte transType, byte[] amtAuthNum, byte[] amtOtherNum, byte cappFlag, byte smAlgSupp, byte[] countryCode, byte[] tvr) {
-        try {
-            this.map = new HashMap<>(100);
-            // 不可预知数
-            setUnpredictNum(Util.getRandom(4));
-            // 交易时间
-            setTransTime(Util.getSysTime(0));
-            // 交易日期
-            setTransDate(Util.getSysDate(3));
-            // 终端名称
-            setMerchantName(Config.TERMINAL_NAME_CN.getBytes(Config.CHARSET));
-            // EC 终端支持指示器 0:no 1:yes
-            setVLPIndicator(vlpIndicator);
-            // 终端交易属性
-            setTermTransAtr(termTransAtr);
-            // 交易类型
-            setTransType(transType);
-            // 授权金额
-            setAmtAuthNum(amtAuthNum);
-            // 其他授权金额
-            setAmtOtherNum(amtOtherNum);
-            // capp 支持
-            setTermCappFlag(cappFlag);
-            // 设置国秘支持
-            setSMAlgSupp(smAlgSupp);
-            // 国家代码
-            setCountryCode(countryCode);
-            // 交易货币代码
-            setTransCurcyCode(countryCode);
-            // 设置终端属性
-            setTermCapab(new byte[]{(byte) 0xA0, 0, (byte) 0x80});
-            // TVR
-            setTVR(new byte[]{0, 0, 0, 0, 0});
-            // 终端类型
-            setTermType((byte)0x32);
-        } catch (UnsupportedEncodingException e) {
-            e.printStackTrace();
-        }
-    }
+//    public Terminal(byte[] amtAuthNum) {
+//        // 终端类型 9F35
+//        setTermType((byte) 0x32);
+//        // 初始化MAP
+//        this.map = new HashMap<>(100);
+//        try {
+//
+//            if (transMode == SPEC.LOAD) {
+//
+//                // 不可预知数 9F37
+//                setUnpredictNum(Util.getRandom(4));
+//                // 交易时间 9F21
+//                setTransTime(Util.getSysTime(0));
+//                // 交易日期 9A
+//                setTransDate(Util.getSysDate(3));
+//                // 商户名称 9F4E
+//                setMerchantName(Config.TERMINAL_NAME_CN.getBytes(Config.CHARSET));
+//                // 电子现金终端支持指示器 0:no 1:yes 9F7A
+//                setVLPIndicator((byte) 0x00);
+//                // 终端交易属性 9F66
+//                setTermTransAtr(new byte[]{(byte) 0x66, (byte) 0x80, (byte) 0, (byte) 0x80});
+//                // 交易类型 9C
+//                setTransType((byte) 0x00);
+//                // 授权金额 9F02
+//                setAmtAuthNum(amtAuthNum);
+//                // 其他授权金额 9F03
+//                setAmtOtherNum(new byte[]{0, 0, 0, 0, 0, 0});
+//                // capp 支持 DF60
+//                setTermCappFlag((byte) 0x00);
+//                // 设置国密支持 DF69
+//                setSMAlgSupp((byte) 0x00);
+//                // 终端国家代码 9F1A
+//                setCountryCode(new byte[]{(byte) 0x01, (byte) 0x56});
+//                // 交易货币代码 5F2A
+//                setTransCurcyCode(new byte[]{(byte) 0x01, (byte) 0x56});
+//                // 终端性能 9F33
+//                setTermCapab(new byte[]{(byte) 0xE0, (byte) 0xE8, (byte) 0xE8});
+//                // TVR 95
+//                setTVR(new byte[]{0, 0, 0, 0, 0});
+//
+//            } else if (transMode == SPEC.PAY) {
+//
+//                // 不可预知数 9F37
+//                setUnpredictNum(Util.getRandom(4));
+//                // 交易时间 9F21
+//                setTransTime(Util.getSysTime(0));
+//                // 交易日期 9A
+//                setTransDate(Util.getSysDate(3));
+//                // 商户名称 9F4E
+//                setMerchantName(Config.TERMINAL_NAME_CN.getBytes(Config.CHARSET));
+//                // 电子现金终端支持指示器 0:no 1:yes 9F7A
+//                setVLPIndicator((byte) 0x00);
+//                // 终端交易属性 9F66
+//                setTermTransAtr(new byte[]{(byte) 0x28, (byte) 0x00, (byte) 0x00, (byte) 0x80});
+//                // 交易类型 9C
+//                setTransType((byte) 0x00);
+//                // 授权金额 9F02
+//                setAmtAuthNum(amtAuthNum);
+//                // 其他授权金额 9F03
+//                setAmtOtherNum(new byte[]{0, 0, 0, 0, 0, 0});
+//                // capp 支持 DF60
+//                setTermCappFlag((byte) 0x00);
+//                // 设置国密支持 DF69
+//                setSMAlgSupp((byte) 0x00);
+//                // 终端国家代码 9F1A
+//                setCountryCode(new byte[]{(byte) 0x01, (byte) 0x56});
+//                // 交易货币代码 5F2A
+//                setTransCurcyCode(new byte[]{(byte) 0x01, (byte) 0x56});
+//                // 终端性能 9F33
+//                setTermCapab(new byte[]{(byte) 0xE0, (byte) 0xE8, (byte) 0xE8});
+//                // TVR 95
+//                setTVR(new byte[]{0, 0, 0, 0, 0});
+//                // 电子现金终端交易限额
+//
+//
+//            } else {
+//
+//            }
+//        } catch (UnsupportedEncodingException e) {
+//            e.printStackTrace();
+//        }
+//    }
 
 //    public Iso7816.BerHouse getBerHouse() {
 //        return berHouse;
@@ -295,7 +379,7 @@ public class Terminal {
 
     public void setTransType(byte transType) {
         this.transType = transType;
-        setValue(TransType,transType);
+        setValue(TransType, transType);
     }
 
     //for distinguish different trans types such as goods and service.

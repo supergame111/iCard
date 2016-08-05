@@ -20,6 +20,7 @@
     <string name="spec_prop_translog">交易记录：</string>
     <string name="spec_prop_access">访问受限</string>
     <string name="spec_prop_exception">错误：</string>
+    <string name="spec_prop_warning"></string>
     <string name="spec_cur_unknown"></string>
     <string name="spec_cur_usd">美元</string>
     <string name="spec_cur_cny">元</string>
@@ -83,7 +84,8 @@
 	]]>
     </string>
     <string name="load">充值</string>
-    <string name="load_money_hint">输入充值金额</string>
+    <string name="pay">消费</string>
+    <string name="load_money_hint">输入金额</string>
     <string name="info_reader_nocard">
 <![CDATA[
     <t_tip>没有卡片信息，请将卡片靠近读卡器，<t_action_try>并重试</t_action_try>。</t_tip>
@@ -92,4 +94,5 @@
     <string name="warning_no_reader">没有找到读卡器</string>
     <string name="info_home">首页</string>
     <string name="info_home_me">我的</string>
+    <string name="fail_to_read_card">读卡失败,联系qingyuan.ke@foxmail.com</string>
 </resources>

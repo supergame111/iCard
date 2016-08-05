@@ -7,7 +7,7 @@
     android:paddingLeft="@dimen/activity_horizontal_margin"
     android:paddingRight="@dimen/activity_horizontal_margin"
     android:paddingTop="@dimen/activity_vertical_margin"
-    tools:context=".ui.activities.StandardECLoadActivity">
+    tools:context=".ui.activities.StandardECLoadActivity" >
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -24,7 +24,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="@string/load"
+                android:text="@string/pay"
                 android:textAppearance="?android:attr/textAppearanceLarge" />
 
             <TextView
@@ -32,8 +32,8 @@
                 android:layout_height="wrap_content"
                 android:layout_below="@+id/textView"
                 android:layout_weight="3"
-                android:textAppearance="?android:attr/textAppearanceLarge"
-                android:textColor="@android:color/holo_green_dark" />
+                android:textColor="@android:color/holo_green_dark"
+                android:textAppearance="?android:attr/textAppearanceLarge" />
         </LinearLayout>
 
         <LinearLayout
@@ -42,7 +42,7 @@
             android:orientation="vertical">
 
             <EditText
-                android:id="@+id/edit_load_money"
+                android:id="@+id/edit_pay_money"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:hint="@string/load_money_hint"
@@ -50,23 +50,20 @@
                 android:textAppearance="?android:attr/textAppearanceLarge" />
 
             <Button
-                android:id="@+id/btn_charge"
+                android:id="@+id/btn_pay"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="30dp"
-                android:text="@string/load" />
+                android:text="@string/pay"/>
 
         </LinearLayout>
-
         <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical">
-
+            android:layout_height="wrap_content">
             <TextView
-                android:id="@+id/textView_load"
+                android:id="@+id/textView_pay"
                 android:layout_width="match_parent"
-                android:layout_height="match_parent" />
+                android:layout_height="wrap_content" />
         </LinearLayout>
     </LinearLayout>
 </RelativeLayout>

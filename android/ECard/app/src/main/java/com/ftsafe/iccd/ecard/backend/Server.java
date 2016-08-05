@@ -16,7 +16,6 @@ import javax.crypto.NoSuchPaddingException;
 import ftsafe.common.ErrMessage;
 import ftsafe.common.Util;
 import ftsafe.common.encryption.DES2;
-import ftsafe.common.encryption.MAC;
 import ftsafe.reader.tech.Iso7816;
 
 /**
@@ -24,13 +23,8 @@ import ftsafe.reader.tech.Iso7816;
  */
 public class Server {
 
-    protected static int TRANS_MODE_PBOC = 1;
-    protected static int TRANS_MODE_VISA = 2;
-    protected static int TRANS_MODE_MASTERCARD = 10;
-    protected static int TRANS_MODE_EMV = 80;
-
-
     public final static byte[] UPDATE_EC_CMD = {(byte) 0x04, (byte) 0xDA, (byte) 0x9F, (byte) 0x79, (byte) 0x0A};
+    private short mTransMode;
     private ClientInfo mClientInfo = null;
     byte[] ARQC = null;
     private byte[] ARPC = null;
@@ -39,7 +33,15 @@ public class Server {
     private byte[] MACSessionKey = null;
     private byte[] ENCSessionKey = null;
 
-    public byte[] buildUpdateECScript() throws ErrMessage {
+    public short getmTransMode() {
+        return mTransMode;
+    }
+
+    public void setTransMode(short transMode) {
+        mTransMode = transMode;
+    }
+
+    public byte[] putData() throws ErrMessage {
 
         if (MACSessionKey != null && mClientInfo != null && ARQC != null) {
             byte[] data = calculateMoney(mClientInfo.amtAuthNum);
@@ -84,7 +86,13 @@ public class Server {
                 Log.d(Config.APP_ID, "授权金额=" + aau);
                 final int remain = Integer.valueOf(Util.toHexString(Arrays.copyOfRange(issAppData, 2, 7)));
                 Log.d(Config.APP_ID, "卡内余额=" + remain);
-                final int total = aau + remain;
+                int total = 0;
+                if (mTransMode == SPEC.LOAD)
+                    total = aau + remain;
+                else if (mTransMode == SPEC.PAY)
+                    total = remain - aau;
+                else
+                    total = remain;
                 Log.d(Config.APP_ID, "总金额=" + total);
 
                 return Util.toBytes(String.format("%012d", total));
@@ -147,7 +155,7 @@ public class Server {
                 byte[] tmp = Util.calXOR(Arrays.copyOfRange(DIV, 8, 16), Arrays.copyOf(DIV, 8), 8);
                 System.arraycopy(tmp, 0, DIV, 8, 8);
                 //算法标识 04 使用国密算法
-                if ((EMVMode == TRANS_MODE_PBOC) && mClientInfo.issuAppData[7] == (byte) 0x04) {
+                if ((EMVMode == SPEC.TRANS_MODE_PBOC) && mClientInfo.issuAppData[7] == (byte) 0x04) {
 //                    SM4Encrypt(ucDIV, 16, CD_SM4_ECB, NULL, ucACKey, ucTACKey, & nKeyLen);
 //                    SM4Encrypt(ucDIV, 16, CD_SM4_ECB, NULL, ucMACKey, ucTMACKey, & nKeyLen);
 //                    SM4Encrypt(ucDIV, 16, CD_SM4_ECB, NULL, ucENCKey, ucTENCKey, & nKeyLen);
@@ -185,7 +193,7 @@ public class Server {
             byte crypto = issuerAppData[2];
             Log.d(Config.APP_ID, "密文版本号=" + Util.toHexString(crypto));
 
-            if (EMVMode == TRANS_MODE_PBOC) { // PBOC
+            if (EMVMode == SPEC.TRANS_MODE_PBOC) { // PBOC
                 // 计算过程密钥
                 if (crypto == (byte) 0x01 || crypto == (byte) 0x17) {
                     // ATC 取反放在第14位
@@ -526,9 +534,9 @@ public class Server {
             {
                 //SM4Encrypt(ucARPCSrc, 8, CD_SM4_ECB, NULL, ucACKey, ucARPC, & nDataLen);
             } else { // 国际算法
-                if (EMVMode == TRANS_MODE_MASTERCARD) {
+                if (EMVMode == SPEC.TRANS_MODE_MASTERCARD) {
                     ARPC = DES2.TripleDES.encrypt(TACKey, tmp, null, DES2.TripleDES.DESEDE_ECB_NOPADDING);
-                } else if (EMVMode == TRANS_MODE_PBOC || EMVMode == TRANS_MODE_VISA) {
+                } else if (EMVMode == SPEC.TRANS_MODE_PBOC || EMVMode == SPEC.TRANS_MODE_VISA) {
                     ARPC = DES2.TripleDES.encrypt(ACKey, tmp, null, DES2.TripleDES.DESEDE_ECB_NOPADDING);
                 } else {
                     throw new ErrMessage("EMVMode非法导致生成ARPC失败,EMVMode=" + EMVMode);
@@ -543,5 +551,30 @@ public class Server {
 
         return null;
 
+    }
+
+    // trace=0,debug=1,info=2,warn=3,error=4,fatal=5
+    void Log(int level, String msg) {
+        switch (level) {
+            case 0: // trace
+
+                break;
+            case 1: // debug
+                Log.d(Config.APP_ID, msg);
+                break;
+            case 2: // info
+                Log.i(Config.APP_ID, msg);
+                break;
+            case 3: // warn
+                Log.w(Config.APP_ID, msg);
+                break;
+            case 4: // error
+                Log.e(Config.APP_ID, msg);
+                break;
+            case 5: // fatal
+                break;
+            default:
+                break;
+        }
     }
 }

@@ -19,6 +19,7 @@ package com.ftsafe.iccd.ecard.reader.pboc;
 import com.ftsafe.iccd.ecard.SPEC;
 import com.ftsafe.iccd.ecard.bean.Application;
 import com.ftsafe.iccd.ecard.bean.Card;
+import com.ftsafe.iccd.ecard.pojo.PbocTag;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -94,22 +95,22 @@ public class StandardECash extends StandardPboc {
             // parse PDOL and get processing options
             // 这是正规途径，但是每次GPO都会使ATC加1，达到65535卡片就锁定了
             /*--------------------------------------------------------------*/
-//            rsp = tag.getProcessingOptions(buildPDOL(subTLVs));
-//            if (rsp.isOkey())
-//                BerTLV.extractPrimitives(subTLVs, rsp);
+            //rsp = tag.getProcessingOptions(buildPDOL(subTLVs));
+            //if (rsp.isOkey())
+            //    BerTLV.extractPrimitives(subTLVs, rsp);
 
 			/*--------------------------------------------------------------*/
             // 遍历目录下31个文件，山寨途径，微暴力，不知会对卡片折寿多少
             // 相对于GPO不停的增加ATC，这是一种折中
             // (遍历过程一般不会超过15个文件就会结束)
-			/*--------------------------------------------------------------*/
+            /*--------------------------------------------------------------*/
             collectTLVFromRecords(tag, subTLVs);
 
             // String dump = subTLVs.toString();
 
 			/*--------------------------------------------------------------*/
             // build result
-			/*--------------------------------------------------------------*/
+            /*--------------------------------------------------------------*/
             final Application app = createApplication();
 
             parseInfo(app, subTLVs);
@@ -122,7 +123,7 @@ public class StandardECash extends StandardPboc {
         return card.isUnknownCard() ? HINT.RESETANDGONEXT : HINT.STOP;
     }
 
-    private static void parseInfo(Application app, BerHouse tlvs) {
+    static void parseInfo(Application app, BerHouse tlvs) {
         String pan = parseString(tlvs, (short) 0x5A);
         if (pan != null) {
             if (pan.length() > 19)
@@ -207,12 +208,12 @@ public class StandardECash extends StandardPboc {
     }
 
 
-    private static void buildPDO(ByteBuffer out, int len, byte... val) {
-        final int n = Math.min((val != null) ? val.length : 0, len);
-        int i = 0;
-        while (i < n) out.put(val[i++]);
-        while (i++ < len) out.put((byte) 0);
-    }
+//    private static void buildPDO(ByteBuffer out, int len, byte... val) {
+//        final int n = Math.min((val != null) ? val.length : 0, len);
+//        int i = 0;
+//        while (i < n) out.put(val[i++]);
+//        while (i++ < len) out.put((byte) 0);
+//    }
 
 //    private static byte[] buildPDOL(Iso7816.BerHouse tlvs) {
 //        final ByteBuffer buff = ByteBuffer.allocate(64);
@@ -320,7 +321,7 @@ public class StandardECash extends StandardPboc {
         }
     }
 
-    private static SPEC.APP parseApplicationName(BerHouse tlvs, String serial) {
+    static SPEC.APP parseApplicationName(BerHouse tlvs, String serial) {
         String f = parseString(tlvs, (short) 0x84);
         if (f != null) {
             Matcher m = Pattern.compile("^([0-9A-F]{10})([0-9A-F]{6})").matcher(f);

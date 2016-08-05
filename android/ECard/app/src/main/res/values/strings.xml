@@ -30,6 +30,7 @@
     <string name="spec_prop_translog">Transaction Logs:</string>
     <string name="spec_prop_access">Access denied</string>
     <string name="spec_prop_exception">Error:</string>
+    <string name="spec_prop_warning"></string>
     <string name="spec_cur_unknown"></string>
     <string name="spec_cur_usd">USD</string>
     <string name="spec_cur_cny">CNY</string>
@@ -93,6 +94,7 @@
     </string>
     <string name="title_activity_nfc">NfcActivity</string>
     <string name="load">Charge</string>
+    <string name="pay">Pay</string>
     <string name="load_money_hint">Money</string>
     <string name="info_reader_nocard">
 <![CDATA[
@@ -102,5 +104,6 @@
     <string name="warning_no_reader">No reader found</string>
     <string name="info_home">Home</string>
     <string name="info_home_me">Me</string>
+    <string name="fail_to_read_card">Fail to read card contact qingyuan.ke@foxmail.com</string>
 
 </resources>

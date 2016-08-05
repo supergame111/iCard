@@ -8,6 +8,7 @@ import com.ftsafe.iccd.ecard.SPEC;
 import com.ftsafe.iccd.ecard.bean.Card;
 import com.ftsafe.iccd.ecard.reader.pboc.StandardPboc;
 
+import ftsafe.common.ErrMessage;
 import ftsafe.common.Util;
 import ftsafe.reader.Reader;
 
@@ -58,22 +59,21 @@ public class ReaderManager extends AsyncTask<Reader, SPEC.EVENT, Card> {
 
         try {
 
-            publishProgress(SPEC.EVENT.IDLE);
+            publishProgress(SPEC.EVENT.READING);
 
             card.setProperty(SPEC.PROP.ID, Util.toHexString(reader.getId()));
 
             if (reader != null) {
-                publishProgress(SPEC.EVENT.READING);
                 if (mClass != null)
                     StandardPboc.readCard(reader, mClass, card);
                 else
                     StandardPboc.readCard(reader, card);
             }
 
-            publishProgress(SPEC.EVENT.FINISHED);
+            publishProgress(SPEC.EVENT.IDLE);
 
         } catch (Exception e) {
-            Log.e(Config.APP_ID,e.getMessage(),e);
+            Log.e(Config.APP_ID, e.getMessage(), e);
             card.setProperty(SPEC.PROP.EXCEPTION, e);
             publishProgress(SPEC.EVENT.ERROR);
         }

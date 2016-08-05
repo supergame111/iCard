@@ -1,7 +1,11 @@
 package com.ftsafe.iccd.ecard.ui.fragments;
 
+import android.annotation.TargetApi;
 import android.content.Context;
+import android.content.res.Resources;
+import android.graphics.Color;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.support.v4.app.Fragment;
 import android.view.LayoutInflater;
@@ -54,6 +58,8 @@ public class FirstFragment extends Fragment implements AdapterView.OnItemClickLi
 
         // set grid view itemclickLisenter
         mGridView.setOnItemClickListener(this);
+
+        changeButtonAlpha(100);
         return view;
     }
 
@@ -90,14 +96,29 @@ public class FirstFragment extends Fragment implements AdapterView.OnItemClickLi
 
     @Override
     public void onClick(View v) {
-        if (v == mOtgBtn)
+        changeButtonAlpha(100);
+        if (v == mOtgBtn) {
+            //mOtgBtn.setBackgroundColor(getResources().getColor(R.color.colorAccent));
+            mOtgBtn.getBackground().setAlpha(255);
             mListener.onButtonClick4First(0);
-        else if (v == mBleBtn)
+        } else if (v == mBleBtn) {
+            //mBleBtn.setBackgroundColor(getResources().getColor(R.color.colorAccent));
+            mBleBtn.getBackground().setAlpha(255);
             mListener.onButtonClick4First(1);
-        else if (v == mNfcBtn)
+        } else if (v == mNfcBtn) {
+            //mNfcBtn.setBackgroundColor(getResources().getColor(R.color.colorAccent));
+            mNfcBtn.getBackground().setAlpha(255);
             mListener.onButtonClick4First(2);
-        else
+        } else {
             return;
+        }
+
+    }
+
+    private void changeButtonAlpha(int alpha) {
+        mOtgBtn.getBackground().setAlpha(alpha);
+        mBleBtn.getBackground().setAlpha(alpha);
+        mNfcBtn.getBackground().setAlpha(alpha);
     }
 
     /**

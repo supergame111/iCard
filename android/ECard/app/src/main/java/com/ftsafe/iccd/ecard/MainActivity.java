@@ -27,7 +27,7 @@ import com.feitian.readerdk.Tool.DK;
 import com.ftreader.bluetooth.BlueToothReceiver;
 import com.ftsafe.iccd.ecard.ui.activities.CardInfoActivity;
 import com.ftsafe.iccd.ecard.ui.activities.DeviceActivity;
-import com.ftsafe.iccd.ecard.ui.activities.StandardECLoadActivity;
+import com.ftsafe.iccd.ecard.ui.activities.StandardECTransactionActivity;
 import com.ftsafe.iccd.ecard.ui.activities.NfcActivity;
 import com.ftsafe.iccd.ecard.ui.fragments.FirstFragment;
 import com.ftsafe.iccd.ecard.ui.fragments.SecondFragment;
@@ -438,6 +438,11 @@ public class MainActivity extends FragmentActivity implements OnMenuTabClickList
     }
 
     @Override
+    public void onFragmentInteraction4Second(Uri uri) {
+
+    }
+
+    @Override
     public void onButtonClick4First(int position) {
         switch (position) {
             case 0:
@@ -461,18 +466,18 @@ public class MainActivity extends FragmentActivity implements OnMenuTabClickList
                 break;
             case 11:
                 // 标准PBOC电子现金圈存
-                StandardECLoadActivity.TRANS_MODE = ECARDSPEC.LOAD;
+                StandardECTransactionActivity.TRANS_MODE = ECARDSPEC.LOAD;
                 if (MiniPay != null || BtReader != null) {
-                    startActivity(new Intent(MainActivity.this, StandardECLoadActivity.class));
+                    startActivity(new Intent(MainActivity.this, StandardECTransactionActivity.class));
                 } else {
                     Toast.makeText(this, R.string.warning_no_reader, Toast.LENGTH_SHORT).show();
                 }
                 break;
             case 12:
                 // 标准PBOC电子现金消费
-                StandardECLoadActivity.TRANS_MODE = ECARDSPEC.PAY;
+                StandardECTransactionActivity.TRANS_MODE = ECARDSPEC.PAY;
                 if (MiniPay != null || BtReader != null)
-                    startActivity(new Intent(MainActivity.this, StandardECLoadActivity.class));
+                    startActivity(new Intent(MainActivity.this, StandardECTransactionActivity.class));
                 else
                     Toast.makeText(this, R.string.warning_no_reader, Toast.LENGTH_SHORT).show();
                 break;
@@ -484,8 +489,5 @@ public class MainActivity extends FragmentActivity implements OnMenuTabClickList
         }
     }
 
-    @Override
-    public void onFragmentInteraction4Second(Uri uri) {
 
-    }
 }

@@ -52,9 +52,9 @@ public class CardInfoActivity extends Activity implements ReaderListener, SpanFo
 
     private void readCard() {
         if (MainActivity.BtReader != null)
-            ReaderManager.readCard(MainActivity.BtReader, StandardECash.class, CardInfoActivity.this);
+            ReaderManager.readCard(MainActivity.BtReader, CardInfoActivity.this);
         if (MainActivity.MiniPay != null)
-            ReaderManager.readCard(MainActivity.MiniPay, StandardECash.class, CardInfoActivity.this);
+            ReaderManager.readCard(MainActivity.MiniPay, CardInfoActivity.this);
     }
 
     public void onCopyPageContent(View view) {

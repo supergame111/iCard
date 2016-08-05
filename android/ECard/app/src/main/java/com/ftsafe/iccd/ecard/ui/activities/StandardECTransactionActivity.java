@@ -2,6 +2,7 @@ package com.ftsafe.iccd.ecard.ui.activities;
 
 import android.app.Activity;
 import android.app.Dialog;
+import android.app.ProgressDialog;
 import android.content.Intent;
 import android.os.Bundle;
 import android.text.Html;
@@ -9,6 +10,7 @@ import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -27,7 +29,7 @@ import com.ftsafe.iccd.ecard.reader.pboc.StandardECPay;
 /**
  * Created by qingyuan on 2016/7/6.
  */
-public class StandardECLoadActivity extends Activity implements ReaderListener, View.OnClickListener {
+public class StandardECTransactionActivity extends Activity implements ReaderListener, View.OnClickListener {
     public static short TRANS_MODE;
     public static String AMT = null;
     private EditText mEditText;
@@ -83,14 +85,22 @@ public class StandardECLoadActivity extends Activity implements ReaderListener, 
 
     }
 
-    private Dialog progressBar;
+//    private Dialog progressBar;
+    private ProgressDialog progressBar;
 
     private void showProgressBar() {
-        Dialog d = progressBar;
+//        Dialog d = progressBar;
+//        if (d == null) {
+//            d = new Dialog(this, R.style.progressBar);
+//            d.setCancelable(false);
+//            d.setContentView(R.layout.progress);
+//            progressBar = d;
+//        }
+        ProgressDialog d = progressBar;
         if (d == null) {
-            d = new Dialog(this, R.style.progressBar);
+            d = new ProgressDialog(this);
+            d.setMessage("交易中...");
             d.setCancelable(false);
-            d.setContentView(R.layout.progress);
             progressBar = d;
         }
 

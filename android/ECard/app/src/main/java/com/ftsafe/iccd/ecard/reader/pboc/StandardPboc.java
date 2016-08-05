@@ -38,7 +38,7 @@ public abstract class StandardPboc {
 
     ECARDSPEC.EmvMode mEmvMode = ECARDSPEC.EmvMode.PBOC;
 
-    private static Class<?>[][] applets = {};
+    private static Class<?>[][] applets = {{BeijingMunicipal.class}, {StandardECash.class,}};
 
     public static void readCard(Reader reader, Card card) throws Exception {
 
@@ -443,23 +443,37 @@ public abstract class StandardPboc {
         app.setProperty(SPEC.PROP.CURRENCY, getCurrency());
     }
 
-    protected byte[] initialApp(Iso7816.StdTag tag, Iso7816.BerHouse berHouse, Terminal terminal) throws ErrMessage, IOException {
+    protected void initialApp(Iso7816.StdTag tag, Iso7816.BerHouse berHouse, Terminal terminal) throws ErrMessage, IOException {
         Log(1, "应用初始化");
+        byte[] aip = null, afl = null;
         // GPO
         byte[] pdol = buildPDOL(berHouse, terminal);
 
         Log.d(Config.APP_ID, "PDOL=" + Util.toHexString(pdol));
 
         Iso7816.Response rsp = tag.getProcessingOptions(pdol);
-        Log(1, "GPO响应=" + Util.toHexString(rsp.getBytes()));
         if (!rsp.isOkey())
-            throw new ErrMessage("GPO失败");
-        if (rsp.getBytes()[0] == (byte) 0x80) {
-            return rsp.getBytes();
-        } else {
+            throw new ErrMessage("GPO异常响应码:" + rsp.getSw12String());
+
+        final byte[] data = rsp.getBytes();
+        /*------------------------*/
+        // 计算SFI
+        /*------------------------*/
+        if (data[0] == (byte) 0x80) {
+            Log(1, "80模板=" + Util.toHexString(data));
+
+            int dlen = data.length - 1;
+            aip = Arrays.copyOfRange(data, 2, 4);
+            afl = Arrays.copyOfRange(data, 4, dlen);
+            berHouse.add(new Iso7816.BerT(PbocTag.APP_INTERCHANGE_PROFILE), aip);
+            berHouse.add(new Iso7816.BerT(PbocTag.APP_FILE_LOCATOR), afl);
+        } else if (data[0] == (byte) 0x77) {
+            Log(1, "77模板=" + Util.toHexString(data));
             Iso7816.BerTLV.extractPrimitives(berHouse, rsp);
+        } else {
+            throw new ErrMessage("非法GPO响应数据=" + Util.toHexString(data));
         }
-        return null;
+
     }
 
     /**
@@ -469,32 +483,19 @@ public abstract class StandardPboc {
      * @param tag      标准PBOC
      * @param berHouse TLV数据包
      */
-    protected void readApplicationRecord(Iso7816.StdTag tag, Iso7816.BerHouse berHouse, byte[] _80) {
+
+    protected void readApplicationRecord(Iso7816.StdTag tag, Iso7816.BerHouse berHouse) {
         Log(1, "读取应用数据");
-        byte[] aip = null, afl = null;
+        byte[] aip = null;
+        byte[] afl = null;
+        Iso7816.BerTLV berTLV = berHouse.findFirst(PbocTag.APP_INTERCHANGE_PROFILE);
+        if (berTLV != null)
+            aip = berTLV.v.getBytes();
+        berTLV = berHouse.findFirst(PbocTag.APP_FILE_LOCATOR);
+        if (berTLV != null)
+            afl = berTLV.v.getBytes();
+        Log(1, "aip=" + Util.toHexString(aip) + ",afl=" + Util.toHexString(afl));
         try {
-            /*------------------------*/
-            // 计算SFI
-            /*------------------------*/
-            if (_80 != null) {
-                Log(1, "80模板=" + Util.toHexString(_80));
-
-                int dlen = _80.length - 1;
-                aip = Arrays.copyOfRange(_80, 2, 4);
-                afl = Arrays.copyOfRange(_80, 4, dlen);
-                berHouse.add(new Iso7816.BerT(PbocTag.APP_INTERCHANGE_PROFILE), aip);
-                berHouse.add(new Iso7816.BerT(PbocTag.APP_FILE_LOCATOR), afl);
-            } else {
-                Log(1, "77模板=" + Util.toHexString(PbocTag.RESPONSE_TEMPLATE_77).getBytes());
-                Iso7816.BerTLV tlv = berHouse.findFirst(PbocTag.APP_INTERCHANGE_PROFILE);
-                if (tlv != null)
-                    aip = tlv.v.getBytes();
-                tlv = berHouse.findFirst(PbocTag.APP_FILE_LOCATOR);
-                if (tlv != null)
-                    afl = tlv.v.getBytes();
-            }
-            Log(1, "aip=" + Util.toHexString(aip) + ",afl=" + Util.toHexString(afl));
-
             if (aip != null && afl != null) {
             /*------------------------*/
                 // RREAD RECORD

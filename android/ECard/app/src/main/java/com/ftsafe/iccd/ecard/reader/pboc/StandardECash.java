@@ -457,6 +457,12 @@ public class StandardECash extends StandardPboc {
                 case 40: // 持卡人账户转账
                     sign = '-';
                     break;
+                case 50: // EC圈存（自定义）
+                    sign = '+';
+                    break;
+                case 51: // EC消费（自定义）
+                    sign = '-';
+                    break;
                 default:
                     sign = '+';
                     break;

@@ -10,7 +10,7 @@ import com.ftsafe.iccd.ecard.bean.Application;
 import com.ftsafe.iccd.ecard.bean.Card;
 import com.ftsafe.iccd.ecard.bean.ClientInfo;
 import com.ftsafe.iccd.ecard.pojo.PbocTag;
-import com.ftsafe.iccd.ecard.ui.activities.StandardECLoadActivity;
+import com.ftsafe.iccd.ecard.ui.activities.StandardECTransactionActivity;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -74,7 +74,7 @@ public class StandardECPay extends StandardECash {
     private Terminal initTerminal() throws ErrMessage {
 
         Terminal terminal = Terminal.getTermianl();
-        final String amt = StandardECLoadActivity.AMT;
+        final String amt = StandardECTransactionActivity.AMT;
         Log.d(Config.APP_ID, "初始化终端参数");
         if (amt == null || amt.length() != 12)
             throw new ErrMessage("授权金额格式错误:" + amt);
@@ -82,7 +82,7 @@ public class StandardECPay extends StandardECash {
         byte[] amtAuthNum = Util.toBytes(amt);
 
         // 交易类型 9C
-        terminal.setTransType((byte) 0x00);
+        terminal.setTransType((byte) 0x51);
         // 授权金额 9F02
         terminal.setAmtAuthNum(amtAuthNum);
         // 其他授权金额 9F03
@@ -190,7 +190,9 @@ public class StandardECPay extends StandardECash {
             /*--------------------------------------------------------------*/
                 // 应用初始化
             /*--------------------------------------------------------------*/
-                byte[] _80 = initialApp(tag, berHouse, terminal);
+                initialApp(tag, berHouse, terminal);
+                if (!rsp.isOkey())
+                    throw new ErrMessage("GPO异常响应码:" + rsp.getSw12String());
 
                 Log.d(Config.APP_ID, "应用初始化完成");
 
@@ -242,10 +244,11 @@ public class StandardECPay extends StandardECash {
 
                 if (transMethod == TransMethod.TRANS_DENIAL)
                     throw new ErrMessage("拒绝脱机交易");
+
             /*--------------------------------------------------------------*/
                 // 读取应用数据
             /*--------------------------------------------------------------*/
-                readApplicationRecord(tag, berHouse, _80);
+                readApplicationRecord(tag, berHouse);
                 Log.d(Config.APP_ID, "读取应用记录完成");
 
                 // 读EC

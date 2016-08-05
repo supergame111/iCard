@@ -11,7 +11,7 @@ import com.ftsafe.iccd.ecard.bean.Card;
 import com.ftsafe.iccd.ecard.backend.Server;
 import com.ftsafe.iccd.ecard.bean.ClientInfo;
 import com.ftsafe.iccd.ecard.pojo.PbocTag;
-import com.ftsafe.iccd.ecard.ui.activities.StandardECLoadActivity;
+import com.ftsafe.iccd.ecard.ui.activities.StandardECTransactionActivity;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -82,13 +82,15 @@ public class StandardECLoad extends StandardECash {
             /*--------------------------------------------------------------*/
                 // 应用初始化
             /*--------------------------------------------------------------*/
-                byte[] _80 = initialApp(tag, berHouse, terminal);
+                initialApp(tag, berHouse, terminal);
+                if (!rsp.isOkey())
+                    throw new ErrMessage("GPO异常响应码:"+rsp.getSw12String());
 
                 Log.d(Config.APP_ID, "应用初始化完成");
             /*--------------------------------------------------------------*/
                 // 读取应用数据
             /*--------------------------------------------------------------*/
-                readApplicationRecord(tag, berHouse, _80);
+                readApplicationRecord(tag, berHouse);
                 Log.d(Config.APP_ID, "读取应用记录完成");
 
             /*--------------------------------------------------------------*/
@@ -274,7 +276,7 @@ public class StandardECLoad extends StandardECash {
 
         Terminal terminal = Terminal.getTermianl();
         Log.d(Config.APP_ID, "初始化终端参数");
-        final String amt = StandardECLoadActivity.AMT;
+        final String amt = StandardECTransactionActivity.AMT;
         if (amt == null || amt.length() != 12)
             throw new ErrMessage("授权金额格式错误:" + amt);
         // 授权金额
@@ -282,7 +284,7 @@ public class StandardECLoad extends StandardECash {
         Log(1, "授权金额" + Util.toHexString(amtAuthNum));
 
         // 交易类型 9C
-        terminal.setTransType((byte) 0x00);
+        terminal.setTransType((byte) 0x50);
         // 授权金额 9F02
         terminal.setAmtAuthNum(amtAuthNum);
         // 其他授权金额 9F03

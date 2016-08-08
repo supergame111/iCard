@@ -443,7 +443,7 @@ public abstract class StandardPboc {
         app.setProperty(SPEC.PROP.CURRENCY, getCurrency());
     }
 
-    protected Iso7816.Response initialApp(Iso7816.StdTag tag, Iso7816.BerHouse berHouse, byte[] pdol) throws IOException {
+    protected Iso7816.Response initializeApp(Iso7816.StdTag tag, Iso7816.BerHouse berHouse, byte[] pdol) throws IOException {
         Log(1, "应用初始化");
         byte[] aip, afl;
 
@@ -472,7 +472,7 @@ public abstract class StandardPboc {
         return rsp;
     }
 
-    protected Iso7816.Response initialApp(Iso7816.StdTag tag, Iso7816.BerHouse berHouse, Terminal terminal) throws ErrMessage, IOException {
+    protected Iso7816.Response initializeApp(Iso7816.StdTag tag, Iso7816.BerHouse berHouse, Terminal terminal) throws ErrMessage, IOException {
         Log(1, "应用初始化");
         byte[] aip, afl;
         // GPO

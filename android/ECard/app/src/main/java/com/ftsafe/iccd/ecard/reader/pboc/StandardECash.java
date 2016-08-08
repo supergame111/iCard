@@ -16,14 +16,9 @@ Additional permission under GNU GPL version 3 section 7 */
 package com.ftsafe.iccd.ecard.reader.pboc;
 
 
-import android.util.Log;
-
-import com.ftsafe.iccd.ecard.Config;
 import com.ftsafe.iccd.ecard.SPEC;
-import com.ftsafe.iccd.ecard.Terminal;
 import com.ftsafe.iccd.ecard.bean.Application;
 import com.ftsafe.iccd.ecard.bean.Card;
-import com.ftsafe.iccd.ecard.pojo.PbocTag;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -32,7 +27,6 @@ import java.util.Arrays;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import ftsafe.common.ErrMessage;
 import ftsafe.common.Util;
 import ftsafe.reader.tech.Iso7816;
 import ftsafe.reader.tech.Iso7816.BerHouse;
@@ -100,7 +94,7 @@ public class StandardECash extends StandardPboc {
             // parse PDOL and get processing options
             // 这是正规途径，但是每次GPO都会使ATC加1，达到65535卡片就锁定了
             /*--------------------------------------------------------------*/
-            rsp = initialApp(tag, subTLVs, buildPDOL(subTLVs));
+            rsp = initializeApp(tag, subTLVs, buildPDOL(subTLVs));
 //            rsp = tag.getProcessingOptions(buildPDOL(subTLVs));
             if (rsp.isOkey())
                 BerTLV.extractPrimitives(subTLVs, rsp);

@@ -11,7 +11,7 @@
     <string name="spec_prop_version">版本：\u0020</string>
     <string name="spec_prop_date">生效：\u0020</string>
     <string name="spec_prop_currency">币种：\u0020</string>
-    <string name="spec_prop_count">交易：\u0020</string>
+    <string name="spec_prop_count">交易序号：\u0020</string>
     <string name="spec_prop_balance">余额：\u0020</string>
     <string name="spec_prop_ecash">电子现金：\u0020</string>
     <string name="spec_prop_tlimit">单笔上限：\u0020</string>

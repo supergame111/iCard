@@ -21,7 +21,7 @@
     <string name="spec_prop_version">Version:\u0020</string>
     <string name="spec_prop_date">Validity:\u0020</string>
     <string name="spec_prop_currency">Currency:\u0020</string>
-    <string name="spec_prop_count">Transactions:\u0020</string>
+    <string name="spec_prop_count">Transactions Count:\u0020</string>
     <string name="spec_prop_ecash">E-Cash:\u0020</string>
     <string name="spec_prop_balance">Balance:\u0020</string>
     <string name="spec_prop_tlimit">EC Single Transaction Limit:\u0020</string>

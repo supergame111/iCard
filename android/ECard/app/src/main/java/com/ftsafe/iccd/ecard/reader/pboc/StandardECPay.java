@@ -190,7 +190,7 @@ public class StandardECPay extends StandardECash {
             /*--------------------------------------------------------------*/
                 // 应用初始化
             /*--------------------------------------------------------------*/
-                rsp = initialApp(tag, berHouse, terminal);
+                rsp = initializeApp(tag, berHouse, terminal);
                 if (!rsp.isOkey())
                     throw new ErrMessage("GPO异常响应码:" + rsp.getSw12String());
 

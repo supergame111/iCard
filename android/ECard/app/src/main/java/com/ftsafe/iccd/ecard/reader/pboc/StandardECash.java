@@ -16,7 +16,11 @@ Additional permission under GNU GPL version 3 section 7 */
 package com.ftsafe.iccd.ecard.reader.pboc;
 
 
+import android.util.Log;
+
+import com.ftsafe.iccd.ecard.Config;
 import com.ftsafe.iccd.ecard.SPEC;
+import com.ftsafe.iccd.ecard.Terminal;
 import com.ftsafe.iccd.ecard.bean.Application;
 import com.ftsafe.iccd.ecard.bean.Card;
 import com.ftsafe.iccd.ecard.pojo.PbocTag;
@@ -28,6 +32,7 @@ import java.util.Arrays;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import ftsafe.common.ErrMessage;
 import ftsafe.common.Util;
 import ftsafe.reader.tech.Iso7816;
 import ftsafe.reader.tech.Iso7816.BerHouse;
@@ -95,9 +100,10 @@ public class StandardECash extends StandardPboc {
             // parse PDOL and get processing options
             // 这是正规途径，但是每次GPO都会使ATC加1，达到65535卡片就锁定了
             /*--------------------------------------------------------------*/
-            //rsp = tag.getProcessingOptions(buildPDOL(subTLVs));
-            //if (rsp.isOkey())
-            //    BerTLV.extractPrimitives(subTLVs, rsp);
+            rsp = initialApp(tag, subTLVs, buildPDOL(subTLVs));
+//            rsp = tag.getProcessingOptions(buildPDOL(subTLVs));
+            if (rsp.isOkey())
+                BerTLV.extractPrimitives(subTLVs, rsp);
 
 			/*--------------------------------------------------------------*/
             // 遍历目录下31个文件，山寨途径，微暴力，不知会对卡片折寿多少
@@ -208,71 +214,71 @@ public class StandardECash extends StandardPboc {
     }
 
 
-//    private static void buildPDO(ByteBuffer out, int len, byte... val) {
-//        final int n = Math.min((val != null) ? val.length : 0, len);
-//        int i = 0;
-//        while (i < n) out.put(val[i++]);
-//        while (i++ < len) out.put((byte) 0);
-//    }
+    private static void buildPDO(ByteBuffer out, int len, byte... val) {
+        final int n = Math.min((val != null) ? val.length : 0, len);
+        int i = 0;
+        while (i < n) out.put(val[i++]);
+        while (i++ < len) out.put((byte) 0);
+    }
 
-//    private static byte[] buildPDOL(Iso7816.BerHouse tlvs) {
-//        final ByteBuffer buff = ByteBuffer.allocate(64);
-//        buff.put((byte) 0x83).put((byte) 0x00);
-//        try {
-//            final byte[] pdol = tlvs.findFirst((short) 0x9F38).v.getBytes();
-//            ArrayList<BerTLV> list = BerTLV.extractOptionList(pdol);
-//            for
-//                    (Iso7816.BerTLV tlv : list) {
-//                final int tag = tlv.t.toInt();
-//                final int
-//                        len = tlv.l.toInt();
-//                switch (tag) {
-//                    case 0x9F66:
-//                        // 终端交易属性
-//                        buildPDO(buff, len, (byte) 0x48);
-//                        break;
-//                    case 0x9F02:
-//                        // 授权金额
-//                        buildPDO(buff, len);
-//                        break;
-//                    case 0x9F03:
-//                        // 其它金额
-//                        buildPDO(buff, len);
-//                        break;
-//                    case 0x9F1A:
-//                        // 终端国家代码
-//                        buildPDO(buff, len, (byte) 0x01, (byte) 0x56);
-//                        break;
-//                    case 0x9F37:
-//                        // 不可预知数
-//                        buildPDO(buff, len);
-//                        break;
-//                    case 0x5F2A:
-//                        // 交易货币代码
-//                        buildPDO(buff, len, (byte) 0x01, (byte) 0x56);
-//                        break;
-//                    case 0x95:
-//                        // 终端验证结果
-//                        buildPDO(buff, len);
-//                        break;
-//                    case 0x9A:
-//                        // 交易日期
-//                        buildPDO(buff, len);
-//                        break;
-//                    case 0x9C:
-//                        // 交易类型
-//                        buildPDO(buff, len);
-//                        break;
-//                    default:
-//                        throw null;
-//                }
-//            } // 更新数据长度
-//            buff.put(1, (byte) (buff.position() - 2));
-//        } catch (Exception e) {
-//            buff.position(2);
-//        }
-//        return Arrays.copyOfRange(buff.array(), 0, buff.position());
-//    }
+    private static byte[] buildPDOL(Iso7816.BerHouse tlvs) {
+        final ByteBuffer buff = ByteBuffer.allocate(64);
+        buff.put((byte) 0x83).put((byte) 0x00);
+        try {
+            final byte[] pdol = tlvs.findFirst((short) 0x9F38).v.getBytes();
+            ArrayList<BerTLV> list = BerTLV.extractOptionList(pdol);
+            for
+                    (Iso7816.BerTLV tlv : list) {
+                final int tag = tlv.t.toInt();
+                final int
+                        len = tlv.l.toInt();
+                switch (tag) {
+                    case 0x9F66:
+                        // 终端交易属性
+                        buildPDO(buff, len, (byte) 0x48);
+                        break;
+                    case 0x9F02:
+                        // 授权金额
+                        buildPDO(buff, len);
+                        break;
+                    case 0x9F03:
+                        // 其它金额
+                        buildPDO(buff, len);
+                        break;
+                    case 0x9F1A:
+                        // 终端国家代码
+                        buildPDO(buff, len, (byte) 0x01, (byte) 0x56);
+                        break;
+                    case 0x9F37:
+                        // 不可预知数
+                        buildPDO(buff, len);
+                        break;
+                    case 0x5F2A:
+                        // 交易货币代码
+                        buildPDO(buff, len, (byte) 0x01, (byte) 0x56);
+                        break;
+                    case 0x95:
+                        // 终端验证结果
+                        buildPDO(buff, len);
+                        break;
+                    case 0x9A:
+                        // 交易日期
+                        buildPDO(buff, len);
+                        break;
+                    case 0x9C:
+                        // 交易类型
+                        buildPDO(buff, len);
+                        break;
+                    default:
+                        throw null;
+                }
+            } // 更新数据长度
+            buff.put(1, (byte) (buff.position() - 2));
+        } catch (Exception e) {
+            buff.position(2);
+        }
+        return Arrays.copyOfRange(buff.array(), 0, buff.position());
+    }
 
     private static void collectTLVFromGlobalTags(Iso7816.StdTag tag, BerHouse tlvs)
             throws IOException {
@@ -287,13 +293,13 @@ public class StandardECash extends StandardPboc {
     private static void collectTLVFromRecords(Iso7816.StdTag tag, BerHouse tlvs) throws IOException {
 
         // info files
-        for (int sfi = 1; sfi <= 10; ++sfi) {
-            Iso7816.Response r = tag.readRecord(sfi, 1);
-            for (int idx = 2; r.isOkey() && idx <= 10; ++idx) {
-                BerTLV.extractPrimitives(tlvs, r);
-                r = tag.readRecord(sfi, idx);
-            }
-        }
+//        for (int sfi = 1; sfi <= 10; ++sfi) {
+//            Iso7816.Response r = tag.readRecord(sfi, 1);
+//            for (int idx = 2; r.isOkey() && idx <= 10; ++idx) {
+//                BerTLV.extractPrimitives(tlvs, r);
+//                r = tag.readRecord(sfi, idx);
+//            }
+//        }
 
         // check if already get sfi of log file
         BerTLV logEntry = tlvs.findFirst((short) 0x9F4D);

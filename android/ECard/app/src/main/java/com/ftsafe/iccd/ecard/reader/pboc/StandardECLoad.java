@@ -82,9 +82,9 @@ public class StandardECLoad extends StandardECash {
             /*--------------------------------------------------------------*/
                 // 应用初始化
             /*--------------------------------------------------------------*/
-                initialApp(tag, berHouse, terminal);
+                rsp = initialApp(tag, berHouse, terminal);
                 if (!rsp.isOkey())
-                    throw new ErrMessage("GPO异常响应码:"+rsp.getSw12String());
+                    throw new ErrMessage("GPO异常响应码:" + rsp.getSw12String());
 
                 Log.d(Config.APP_ID, "应用初始化完成");
             /*--------------------------------------------------------------*/

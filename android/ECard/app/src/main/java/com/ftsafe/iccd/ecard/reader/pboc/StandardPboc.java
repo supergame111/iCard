@@ -443,37 +443,65 @@ public abstract class StandardPboc {
         app.setProperty(SPEC.PROP.CURRENCY, getCurrency());
     }
 
-    protected void initialApp(Iso7816.StdTag tag, Iso7816.BerHouse berHouse, Terminal terminal) throws ErrMessage, IOException {
+    protected Iso7816.Response initialApp(Iso7816.StdTag tag, Iso7816.BerHouse berHouse, byte[] pdol) throws IOException {
         Log(1, "应用初始化");
-        byte[] aip = null, afl = null;
+        byte[] aip, afl;
+
+        Log.d(Config.APP_ID, "PDOL=" + Util.toHexString(pdol));
+
+        Iso7816.Response rsp = tag.getProcessingOptions(pdol);
+        if (rsp.isOkey()) {
+            final byte[] data = rsp.getBytes();
+        /*------------------------*/
+            // 计算SFI
+        /*------------------------*/
+            if (data[0] == (byte) 0x80) {
+                Log(1, "80模板=" + Util.toHexString(data));
+
+                int dlen = data.length - 1;
+                aip = Arrays.copyOfRange(data, 2, 4);
+                afl = Arrays.copyOfRange(data, 4, dlen);
+                berHouse.add(new Iso7816.BerT(PbocTag.APP_INTERCHANGE_PROFILE), aip);
+                berHouse.add(new Iso7816.BerT(PbocTag.APP_FILE_LOCATOR), afl);
+            } else if (data[0] == (byte) 0x77) {
+                Log(1, "77模板=" + Util.toHexString(data));
+                Iso7816.BerTLV.extractPrimitives(berHouse, rsp);
+            } else
+                ;
+        }
+        return rsp;
+    }
+
+    protected Iso7816.Response initialApp(Iso7816.StdTag tag, Iso7816.BerHouse berHouse, Terminal terminal) throws ErrMessage, IOException {
+        Log(1, "应用初始化");
+        byte[] aip, afl;
         // GPO
         byte[] pdol = buildPDOL(berHouse, terminal);
 
         Log.d(Config.APP_ID, "PDOL=" + Util.toHexString(pdol));
 
         Iso7816.Response rsp = tag.getProcessingOptions(pdol);
-        if (!rsp.isOkey())
-            throw new ErrMessage("GPO异常响应码:" + rsp.getSw12String());
+        if (rsp.isOkey()) {
 
-        final byte[] data = rsp.getBytes();
+            final byte[] data = rsp.getBytes();
         /*------------------------*/
-        // 计算SFI
+            // 计算SFI
         /*------------------------*/
-        if (data[0] == (byte) 0x80) {
-            Log(1, "80模板=" + Util.toHexString(data));
+            if (data[0] == (byte) 0x80) {
+                Log(1, "80模板=" + Util.toHexString(data));
 
-            int dlen = data.length - 1;
-            aip = Arrays.copyOfRange(data, 2, 4);
-            afl = Arrays.copyOfRange(data, 4, dlen);
-            berHouse.add(new Iso7816.BerT(PbocTag.APP_INTERCHANGE_PROFILE), aip);
-            berHouse.add(new Iso7816.BerT(PbocTag.APP_FILE_LOCATOR), afl);
-        } else if (data[0] == (byte) 0x77) {
-            Log(1, "77模板=" + Util.toHexString(data));
-            Iso7816.BerTLV.extractPrimitives(berHouse, rsp);
-        } else {
-            throw new ErrMessage("非法GPO响应数据=" + Util.toHexString(data));
+                int dlen = data.length - 1;
+                aip = Arrays.copyOfRange(data, 2, 4);
+                afl = Arrays.copyOfRange(data, 4, dlen);
+                berHouse.add(new Iso7816.BerT(PbocTag.APP_INTERCHANGE_PROFILE), aip);
+                berHouse.add(new Iso7816.BerT(PbocTag.APP_FILE_LOCATOR), afl);
+            } else if (data[0] == (byte) 0x77) {
+                Log(1, "77模板=" + Util.toHexString(data));
+                Iso7816.BerTLV.extractPrimitives(berHouse, rsp);
+            } else {
+            }
         }
-
+        return rsp;
     }
 
     /**

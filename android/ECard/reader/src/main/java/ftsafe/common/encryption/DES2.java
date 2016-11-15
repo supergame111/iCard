@@ -158,7 +158,7 @@ public class DES2 {
                 System.arraycopy(eKey, 0, keyTmp, 16, eKey.length);
 
                 //generate tripleDes key
-                SecretKey secretKey = new SecretKeySpec(keyTmp, DESEDE_ECB_NOPADDING);
+                SecretKey secretKey = new SecretKeySpec(keyTmp, DESEDE);
                 // Create and initialize the encryption engine
                 Cipher cipher = Cipher.getInstance(DESEDE_ECB_NOPADDING);
                 if (cipherAlgorithm != null)
@@ -209,7 +209,7 @@ public class DES2 {
                 System.arraycopy(dKey, 0, keyTmp, 8, dKey.length);
                 System.arraycopy(eKey, 0, keyTmp, 16, eKey.length);
                 //generate tripleDes key
-                SecretKey secretKey = new SecretKeySpec(keyTmp, DESEDE_ECB_NOPADDING);
+                SecretKey secretKey = new SecretKeySpec(keyTmp, DESEDE);
                 // Create and initialize the decryption engine
                 Cipher cipher = Cipher.getInstance(DESEDE_ECB_NOPADDING);
                 if (cipherAlgorithm != null)

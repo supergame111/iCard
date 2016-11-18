@@ -38,7 +38,8 @@ public abstract class StandardPboc {
 
     ECARDSPEC.EmvMode mEmvMode = ECARDSPEC.EmvMode.PBOC;
 
-    private static Class<?>[][] applets = {{BeijingMunicipal.class}, {StandardECash.class,}};
+    //    private static Class<?>[][] applets = {{BeijingMunicipal.class}, {StandardECash.class,}};
+    private static Class<?>[][] applets = {{StandardECash.class}};
 
     public static void readCard(Reader reader, Card card) throws Exception {
 
@@ -61,7 +62,7 @@ public abstract class StandardPboc {
                     switch (hint) {
 
                         case RESETANDGONEXT:
-                            if (app.reset(tag) == false)
+                            if (!app.reset(tag))
                                 continue;
 
                         case GONEXT:
@@ -98,8 +99,10 @@ public abstract class StandardPboc {
             switch (hint) {
 
                 case RESETANDGONEXT:
-                    if (app.reset(tag) == false)
+                    if (!app.reset(tag)) {
+                        hint = HINT.STOP;
                         break;
+                    }
                 case GONEXT:
                     hint = app.readCard(tag, card);
                     break;
@@ -366,6 +369,10 @@ public abstract class StandardPboc {
                         //buildPDO(buff, len, (byte) 0x00);
                         buildDO(buff, len, terminal.getTermCappFlag());
                         break;
+                    case 0x9F7A:
+                        // 用于标识当前交易是否为电子现金交易。"01"表示电子现金交易，"00"表示非电子现金交易
+                        buildDO(buff, len, terminal.getVLPIndicator());
+                        break;
                     default:
                         throw null;
                 }
@@ -385,14 +392,14 @@ public abstract class StandardPboc {
             final Iso7816.BerT tag = tlv.t;
             final int len = tlv.l.toInt();
             final byte[] value = terminal.getValue(tag.getBytes());
-            Log(1, "Tag=" + Util.toHexString(tag.getBytes()) + ",Len=" + len + ",Value=" + Util.toHexString(value));
+            Log.d(Config.APP_ID, "Tag=" + Util.toHexString(tag.getBytes()) + ",Len=" + len + ",Value=" + Util.toHexString(value));
             if (value != null) {
                 buildDO(buff, len, value);
             }
         }
         // 更新数据长度
         //buff.put(1, (byte) (buff.position() - 2));
-        Log(1, "buff len=" + buff.position());
+        Log.d(Config.APP_ID, "buff len=" + buff.position());
         return Arrays.copyOfRange(buff.array(), 0, buff.position());
 //
 //        int index = 0, nLen, outLen = 0;
@@ -444,7 +451,7 @@ public abstract class StandardPboc {
     }
 
     protected Iso7816.Response initializeApp(Iso7816.StdTag tag, Iso7816.BerHouse berHouse, byte[] pdol) throws IOException {
-        Log(1, "应用初始化");
+        Log.d(Config.APP_ID, "应用初始化");
         byte[] aip, afl;
 
         Log.d(Config.APP_ID, "PDOL=" + Util.toHexString(pdol));
@@ -456,7 +463,7 @@ public abstract class StandardPboc {
             // 计算SFI
         /*------------------------*/
             if (data[0] == (byte) 0x80) {
-                Log(1, "80模板=" + Util.toHexString(data));
+                Log.d(Config.APP_ID, "80模板=" + Util.toHexString(data));
 
                 int dlen = data.length - 1;
                 aip = Arrays.copyOfRange(data, 2, 4);
@@ -464,7 +471,7 @@ public abstract class StandardPboc {
                 berHouse.add(new Iso7816.BerT(PbocTag.APP_INTERCHANGE_PROFILE), aip);
                 berHouse.add(new Iso7816.BerT(PbocTag.APP_FILE_LOCATOR), afl);
             } else if (data[0] == (byte) 0x77) {
-                Log(1, "77模板=" + Util.toHexString(data));
+                Log.d(Config.APP_ID, "77模板=" + Util.toHexString(data));
                 Iso7816.BerTLV.extractPrimitives(berHouse, rsp);
             } else
                 ;
@@ -473,7 +480,7 @@ public abstract class StandardPboc {
     }
 
     protected Iso7816.Response initializeApp(Iso7816.StdTag tag, Iso7816.BerHouse berHouse, Terminal terminal) throws ErrMessage, IOException {
-        Log(1, "应用初始化");
+        Log.d(Config.APP_ID, "应用初始化");
         byte[] aip, afl;
         // GPO
         byte[] pdol = buildPDOL(berHouse, terminal);
@@ -488,15 +495,14 @@ public abstract class StandardPboc {
             // 计算SFI
         /*------------------------*/
             if (data[0] == (byte) 0x80) {
-                Log(1, "80模板=" + Util.toHexString(data));
+                Log.d(Config.APP_ID, "80模板=" + Util.toHexString(data));
 
-                int dlen = data.length - 1;
                 aip = Arrays.copyOfRange(data, 2, 4);
-                afl = Arrays.copyOfRange(data, 4, dlen);
+                afl = Arrays.copyOfRange(data, 4, data.length);
                 berHouse.add(new Iso7816.BerT(PbocTag.APP_INTERCHANGE_PROFILE), aip);
                 berHouse.add(new Iso7816.BerT(PbocTag.APP_FILE_LOCATOR), afl);
             } else if (data[0] == (byte) 0x77) {
-                Log(1, "77模板=" + Util.toHexString(data));
+                Log.d(Config.APP_ID, "77模板=" + Util.toHexString(data));
                 Iso7816.BerTLV.extractPrimitives(berHouse, rsp);
             } else {
             }
@@ -513,7 +519,7 @@ public abstract class StandardPboc {
      */
 
     protected void readApplicationRecord(Iso7816.StdTag tag, Iso7816.BerHouse berHouse) {
-        Log(1, "读取应用数据");
+        Log.d(Config.APP_ID, "读取应用数据");
         byte[] aip = null;
         byte[] afl = null;
         Iso7816.BerTLV berTLV = berHouse.findFirst(PbocTag.APP_INTERCHANGE_PROFILE);
@@ -522,7 +528,7 @@ public abstract class StandardPboc {
         berTLV = berHouse.findFirst(PbocTag.APP_FILE_LOCATOR);
         if (berTLV != null)
             afl = berTLV.v.getBytes();
-        Log(1, "aip=" + Util.toHexString(aip) + ",afl=" + Util.toHexString(afl));
+        Log.e(Config.APP_ID, "aip=" + Util.toHexString(aip) + ",afl=" + Util.toHexString(afl));
         try {
             if (aip != null && afl != null) {
             /*------------------------*/
@@ -537,9 +543,9 @@ public abstract class StandardPboc {
                     nums = Util.BCDtoInt(tmp[1]);
                     nume = Util.BCDtoInt(tmp[2]);
                     flag = Util.BCDtoInt(tmp[3]);
-                    Log(1, "sfi=" + sfi + ",nums=" + nums + ",nume=" + nume + ",flag=" + flag);
+                    Log.d(Config.APP_ID, "sfi=" + sfi + ",nums=" + nums + ",nume=" + nume + ",flag=" + flag);
                     for (int j = nums; j <= nume; j++) {
-                        Log(1, "读记录:SFI=" + sfi + ",NUM=" + j);
+                        Log.d(Config.APP_ID, "读记录:SFI=" + sfi + ",NUM=" + j);
 
                         Iso7816.Response r = tag.readRecord(sfi, j);
                         if (r.isOkey())
@@ -553,7 +559,7 @@ public abstract class StandardPboc {
                 throw new ErrMessage("读应用失败,aip=" + Util.toHexString(aip) + ",afl=" + Util.toHexString(afl));
 
         } catch (Exception e) {
-            Log(4, e.getMessage());
+            Log.e(Config.APP_ID, e.getMessage(), e);
         }
     }
 
@@ -588,7 +594,7 @@ public abstract class StandardPboc {
             parseData(tlv.v.getBytes(), berHouse, PARSE_DATA_COMMON);
         } else
             return ErrCode.ERR_EMV_InternalAuthRespData;
-        Log(1, "内部认证完成");
+        Log.d(Config.APP_ID, "内部认证完成");
         return 0;
     }
 
@@ -597,7 +603,7 @@ public abstract class StandardPboc {
      * INTERNAL AUTHENTICATE命令/响应
      */
     protected int offlineDataAuthenticate(Iso7816.StdTag tag, Iso7816.BerHouse berHouse, Terminal terminal) throws IOException, ErrMessage {
-        Log(1, "脱机数据认证");
+        Log.d(Config.APP_ID, "脱机数据认证");
         int lr = 0; // 暂不实现脱机数据认证
         Iso7816.BerTLV aipTlv = berHouse.findFirst(PbocTag.APP_INTERCHANGE_PROFILE);
         if (aipTlv == null)
@@ -611,7 +617,7 @@ public abstract class StandardPboc {
         if ((AIP[0] & 0x01) != 0 && (termCapab[2] & 0x08) != 0) {
             //ICC and terminal support Combined DDA/AC.(EMV2000 & Bulletin No9, March 2002)
             String tmp = String.format("%02d:%02d:%02d 开始执行CDA", cal.get(Calendar.HOUR_OF_DAY), cal.get(Calendar.MINUTE), cal.get(Calendar.SECOND));
-            Log(1, tmp);
+            Log.d(Config.APP_ID, tmp);
             Iso7816.BerTLV berTLV = berHouse.findFirst(PbocTag.CAPKI);
             if (berTLV != null)
                 ICCAPKI = berTLV.v.getBytes();
@@ -628,7 +634,7 @@ public abstract class StandardPboc {
                     //lr = EMV_CDDAStepICPK( & m_ICCCert);
                 }
                 if (lr != 0) {
-                    Log(1, "脱机CDA认证失败!");
+                    Log.d(Config.APP_ID, "脱机CDA认证失败!");
                     terminal.orTVR(0, (byte) 0x04);        //Offline Combined DDA/AC Generation failed
                     terminal.orTSI(0, (byte) 0x80);        //set bit 'Offline Data Authentication was performed' bit 1
                 }
@@ -638,7 +644,7 @@ public abstract class StandardPboc {
         } else if ((AIP[0] & 0x20) != 0 && (termCapab[2] & 0x40) != 0) {
             //ICC and terminal support dynamic data auth.
             String tmp = String.format("%02d:%02d:%02d 开始执行DDA", cal.get(Calendar.HOUR_OF_DAY), cal.get(Calendar.MINUTE), cal.get(Calendar.SECOND));
-            Log(1, tmp);
+            Log.d(Config.APP_ID, tmp);
             Iso7816.BerTLV SignDynAppData = berHouse.findFirst(PbocTag.SIGN_DYN_APP_DATA);
             if (SignDynAppData == null) {
                 // 内部认证
@@ -666,7 +672,7 @@ public abstract class StandardPboc {
                     //lr = EMV_DynamicAuth();
                 }
                 if (lr != 0) {
-                    Log(1, "脱机DDA认证失败");
+                    Log.d(Config.APP_ID, "脱机DDA认证失败");
                     terminal.orTVR(0, (byte) 0x08);            //Offline dynamic Data Authentication failed
                     terminal.orTSI(0, (byte) 0x80);          //Offline Data Authentication was performed
                 }
@@ -677,7 +683,7 @@ public abstract class StandardPboc {
         } else if ((AIP[0] & 0x40) != 0 && (terminal.getTermCapab()[2] & 0x80) != 0) {
             //ICC and terminal support static data auth.
             String tmp = String.format("%02d:%02d:%02d 开始执行SDA", cal.get(Calendar.HOUR_OF_DAY), cal.get(Calendar.MINUTE), cal.get(Calendar.SECOND));
-            Log(1, tmp);
+            Log.d(Config.APP_ID, tmp);
             Iso7816.BerTLV berTLV = berHouse.findFirst(PbocTag.CAPKI);
             if (berTLV != null)
                 ICCAPKI = berTLV.v.getBytes();
@@ -689,7 +695,7 @@ public abstract class StandardPboc {
             if (ICCAPKI != null && IPK_CERT != null && SignDynAppData != null) {
                 //lr = EMV_StaticAuth();
                 if (lr != 0) {
-                    Log(1, "脱机SDA认证失败!");
+                    Log.d(Config.APP_ID, "脱机SDA认证失败!");
                     terminal.orTVR(0, (byte) 0x40);            //Offline dynamic Data Authentication failed
                     terminal.orTSI(0, (byte) 0x80);            //Offline Data Authentication was performed
                 }
@@ -699,7 +705,7 @@ public abstract class StandardPboc {
         } else {
             //The bit should be set to 1 according to test script 2CI.023.00
             String tmp = String.format("%02d:%02d:%02d,交易未执行脱机数据认证", cal.get(Calendar.HOUR_OF_DAY), cal.get(Calendar.MINUTE), cal.get(Calendar.SECOND));
-            Log(1, tmp);
+            Log.d(Config.APP_ID, tmp);
             terminal.orTVR(0, (byte) 0x80);            //Offline Data Authentication not performed
             terminal.orTSI(0, (byte) 0x7F);            //set bit 'Offline data authentication was performed' bit 0.
         }
@@ -710,11 +716,11 @@ public abstract class StandardPboc {
      * 处理限制
      */
     protected void processRestrict(Iso7816.BerHouse berHouse, Terminal terminal) {
-        Log(1, "处理限制");
+        Log.d(Config.APP_ID, "处理限制");
         // check app version
         Iso7816.BerTLV berTLV = berHouse.findFirst(PbocTag.CARD_APP_VER);
         if (berTLV != null && terminal.getAppVer() != null) {
-            Log(1, "处理限制-应用版本检查");
+            Log.d(Config.APP_ID, "处理限制-应用版本检查");
             if (!(terminal.getAppVer()[0] == 0x00 && terminal.getAppVer()[1] == 0x8C)//VIS140-0x008C(140)
                     && !(terminal.getAppVer()[0] == 0x00 && terminal.getAppVer()[1] == 0x84)//VIS132-0x0084(132)
                     && !(terminal.getAppVer()[0] == 0x00 && terminal.getAppVer()[1] == 0x83)//VIS131-0x0083(131)
@@ -732,7 +738,7 @@ public abstract class StandardPboc {
         berTLV = berHouse.findFirst(PbocTag.AUC);
         if (berTLV != null) { // auc
             byte[] AUC = berTLV.v.getBytes();
-            Log(1, "处理限制-应用用途控制检查");
+            Log.d(Config.APP_ID, "处理限制-应用用途控制检查");
             if ((terminal.getTermType() == 0x14 || terminal.getTermType() == 0x15 || terminal.getTermType() == 0x16)
                     && ((terminal.getTermAddCapab()[0] & 0x80) != 0)) {
                 //The termianl is ATM
@@ -750,7 +756,7 @@ public abstract class StandardPboc {
             // check issuer country code
             berTLV = berHouse.findFirst(PbocTag.ISSUER_COUNTRY_CODE);
             if (berTLV != null) {//Issuer country code exist
-                Log(1, "处理限制-发卡行国家代码检查");
+                Log.d(Config.APP_ID, "处理限制-发卡行国家代码检查");
                 byte[] countryCode = berTLV.v.getBytes();
                 if (Arrays.equals(countryCode, terminal.getCountryCode())) {//domestic
                     if (terminal.getTransType() == ECARDSPEC.TERM_TRANS_CASH) {
@@ -817,7 +823,7 @@ public abstract class StandardPboc {
         berTLV = berHouse.findFirst(PbocTag.APP_START_DATE);
         byte[] currentDate = terminal.getTransDate();
         if (berTLV != null) {
-            Log(1, "处理限制-卡片生效日期检查");
+            Log.d(Config.APP_ID, "处理限制-卡片生效日期检查");
             byte[] EffectDate = berTLV.v.getBytes();
             if (Util.memcmp(currentDate, EffectDate, 4) < 0) { // 小于生效日期
                 //set‘Application not yet effective’bit 1
@@ -826,7 +832,7 @@ public abstract class StandardPboc {
         }
         berTLV = berHouse.findFirst(PbocTag.APP_EXPIRATION_DATE);
         if (berTLV != null) {
-            Log(1, "处理限制-卡片失效日期检查");
+            Log.d(Config.APP_ID, "处理限制-卡片失效日期检查");
             byte[] EffectDate = berTLV.v.getBytes();
             if (Util.memcmp(currentDate, EffectDate, 4) > 0) { // 超过失效日期
                 //set‘Expired application’bit 1
@@ -995,7 +1001,7 @@ public abstract class StandardPboc {
      * GET DATA命令/响应，VERIFY命令/响应
      */
     protected long cardHolderVerify(Iso7816.BerHouse berHouse, Terminal terminal) throws ErrMessage {
-        Log(1, "持卡人验证");
+        Log.d(Config.APP_ID, "持卡人验证");
         long lr;
         int i;
         Iso7816.BerTLV berTLV;
@@ -1294,7 +1300,7 @@ public abstract class StandardPboc {
      */
 
     protected Iso7816.Response termRiskManage(Iso7816.StdTag tag, Iso7816.BerHouse berHouse, Terminal terminal) {
-        Log(1, "终端风险管理");
+        Log.d(Config.APP_ID, "终端风险管理");
         //CheckExceptionFile
 
 // 	for(i=0; i < TermExceptionFileNum; i++)
@@ -1406,7 +1412,7 @@ public abstract class StandardPboc {
      * GENERATE AC命令
      */
     protected TransMethod termActionAnalyze(Iso7816.BerHouse berHouse, Terminal terminal) throws ErrMessage {
-        Log(1, "终端行为分析");
+        Log.d(Config.APP_ID, "终端行为分析");
         int i, k;//TermAnaResult,CardAnaResult;//0-Denial,1-Online,2-Offline
         boolean bFitIAC = false, bFitTAC = false;
 
@@ -1550,7 +1556,7 @@ public abstract class StandardPboc {
     protected static final int PARSE_DATA_COMMON = 3;
 
     protected Iso7816.Response gacProcess(Iso7816.BerHouse berHouse, Terminal terminal, Iso7816.StdTag tag, int gacType, TransMethod transMethod) throws ErrMessage, IOException {
-        Log(1, "第" + gacType + "次GAC");
+        Log.d(Config.APP_ID, "第" + gacType + "次GAC");
         byte p1 = 0;
         byte[] AIP = berHouse.findFirst(PbocTag.APP_INTERCHANGE_PROFILE).v.getBytes();
 
@@ -1608,7 +1614,7 @@ public abstract class StandardPboc {
         if (cdol == null)
             throw new ErrMessage("CDOL为空");
 
-        Log(1, "P1=" + Util.toHexString(p1) + ",CDOL=" + Util.toHexString(cdol));
+        Log.d(Config.APP_ID, "P1=" + Util.toHexString(p1) + ",CDOL=" + Util.toHexString(cdol));
         // 发送GAC命令
         Iso7816.Response r = tag.generateAC(p1, cdol);
         if (!r.isOkey())
@@ -1686,7 +1692,7 @@ public abstract class StandardPboc {
      * 联机处理
      */
     protected TransMethod onlineProcess(Iso7816.BerHouse berHouse, Terminal terminal, Iso7816.Response resp) throws ErrMessage {
-        Log(1, "联机处理");
+        Log.d(Config.APP_ID, "联机处理");
         byte[] gacresp = resp.getBytes();
         int len = Util.toInt(gacresp[1]);
         if (gacresp[0] == (byte) 0x80) {
@@ -1694,8 +1700,8 @@ public abstract class StandardPboc {
             if (len == gacresp.length - 2)
                 ucPrimData = Arrays.copyOfRange(resp.getBytes(), 2, len);
 
-            //Log(1, Util.toHexString(resp.getBytes()));
-            //Log(1, Util.toHexString(ucPrimData));
+            //Log.d(Config.APP_ID, Util.toHexString(resp.getBytes()));
+            //Log.d(Config.APP_ID, Util.toHexString(ucPrimData));
             // 密文信息数据 CID
             berHouse.add(new Iso7816.BerT(PbocTag.CRYPTOGRAM_INFO), new byte[]{ucPrimData[0]});
             // 应用交易计数器 ATC
@@ -1712,7 +1718,7 @@ public abstract class StandardPboc {
         }
 
         byte cryptInfo = berHouse.findFirst(PbocTag.CRYPTOGRAM_INFO).v.getBytes()[0];
-        //Log(1, Util.toHexString(cryptInfo));
+        //Log.d(Config.APP_ID, Util.toHexString(cryptInfo));
         byte[] AIP = berHouse.findFirst(PbocTag.APP_INTERCHANGE_PROFILE).v.getBytes();
         Iso7816.BerTLV signDynAppDataTlv = berHouse.findFirst(PbocTag.SIGN_DYN_APP_DATA);
         if ((cryptInfo & 0x80) == 0x80) {
@@ -1762,7 +1768,7 @@ public abstract class StandardPboc {
      * EXTERNAL AUTHENTICATE命令/响应
      */
     protected Iso7816.Response issuerVerify(Iso7816.StdTag tag, Iso7816.BerHouse berHouse, Terminal terminal, byte[] arc, byte[] arpc) throws IOException, ErrMessage {
-        Log(1, "发卡行认证");
+        Log.d(Config.APP_ID, "发卡行认证");
 
 //        memcpy(m_TermInfo.AuthRespCode, pucAuthRespCode, 2);
 //        m_TermDataTable[TERM_Index_AuthorRespCode].bExist = 1;
@@ -1790,7 +1796,7 @@ public abstract class StandardPboc {
      * GENERATE AC命令/响应
      */
     protected void transactionDone() {
-        Log(1, "交易结束");
+        Log.d(Config.APP_ID, "交易结束");
     }
 
     /**
@@ -1798,13 +1804,13 @@ public abstract class StandardPboc {
      * 发卡行脚本命令/响应
      */
     protected int issuerScriptProcess(Iso7816.StdTag tag, Terminal terminal, byte scriptType, ByteBuffer[] bufs) throws IOException, ErrMessage {
-        Log(1, "发卡行脚本处理");
+        Log.d(Config.APP_ID, "发卡行脚本处理");
         Iso7816.Response r;
         int nErrNum = 0;
 
         for (int i = 1; i <= bufs.length; i++) {
             byte[] script = bufs[i - 1].array();
-            Log(1, "发卡行第" + i + "条脚本:" + Util.toHexString(script));
+            Log.d(Config.APP_ID, "发卡行第" + i + "条脚本:" + Util.toHexString(script));
             r = tag.sendAPDU(script);
             if (!r.isOkey()) {
                 nErrNum++;

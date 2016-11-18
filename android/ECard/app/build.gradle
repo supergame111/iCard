@@ -2,12 +2,12 @@ apply plugin: 'com.android.application'
 
 android {
     compileSdkVersion 23
-    buildToolsVersion "21.1.2"
+    buildToolsVersion '23.0.0'
 
     defaultConfig {
         applicationId "com.ftsafe.iccd.ecard"
         minSdkVersion 18
-        targetSdkVersion 23
+        targetSdkVersion 21
         versionCode 1
         versionName "1.3"
     }
@@ -23,8 +23,5 @@ dependencies {
     compile fileTree(include: ['*.jar'], dir: 'libs')
     testCompile 'junit:junit:4.12'
     compile project(':reader')
-    compile 'com.android.support:appcompat-v7:23.4.0'
-    compile 'com.android.support:design:23.4.0'
-    compile 'com.android.support:support-v4:23.4.0'
     compile 'com.roughike:bottom-bar:1.3.9'
 }

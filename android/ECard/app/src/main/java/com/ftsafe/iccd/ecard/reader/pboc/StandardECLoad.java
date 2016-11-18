@@ -34,15 +34,22 @@ import ftsafe.reader.tech.Iso7816.BerTLV;
  */
 public class StandardECLoad extends StandardECash {
 
-    @Override
-    protected boolean reset(Iso7816.StdTag tag) throws IOException {
-        Iso7816.Response rsp = tag.selectByName(StandardECash.DFN_PPSE);
-        if (!rsp.isOkey())
-            return false;
+//    @Override
+//    protected boolean reset(Iso7816.StdTag tag) throws IOException {
+//        Iso7816.Response rsp = tag.selectByName(StandardECash.DFN_PPSE);
+//        if (!rsp.isOkey()) {
+//            rsp = tag.selectByName(StandardECash.DFN_PSE);
+//            if (!rsp.isOkey())
+//                return false;
+//        }
+//
+//        Iso7816.BerTLV.extractPrimitives(topTLVs, rsp);
+//        return true;
+//    }
 
-        Iso7816.BerTLV.extractPrimitives(topTLVs, rsp);
-        return true;
-    }
+//    final static String AC_KEY = "7510E39445A8C42ADA89CDA10E700D29";
+//    final static String MAC_KEY = "3E89866D8604DF85F1C41AB3AD7AF1DA";
+//    final static String ENC_KEY = "6E2C947A9B01B3614025F467C4F77C01";
 
     final static String AC_KEY = "7510E39445A8C42ADA89CDA10E700D29";
     final static String MAC_KEY = "3E89866D8604DF85F1C41AB3AD7AF1DA";
@@ -295,6 +302,8 @@ public class StandardECLoad extends StandardECash {
         terminal.setTermTransAtr(new byte[]{(byte) 0x66, (byte) 0x80, (byte) 0, (byte) 0x80});
         // 终端性能 9F33
         terminal.setTermCapab(new byte[]{(byte) 0xE0, (byte) 0xE8, (byte) 0xE8});
+        // 电子现金交易标识
+        terminal.setVLPIndicator((byte) 0x00);
 
         return terminal;
     }

@@ -31,7 +31,7 @@ public class Terminal {
         // 终端国家代码 9F1A
         terminal.setCountryCode(new byte[]{(byte) 0x01, (byte) 0x56});
         // 电子现金终端支持指示器 9F7A 0:no 1:yes
-        terminal.setVLPIndicator((byte) 0x01);
+        //terminal.setVLPIndicator((byte) 0x01);
         // 电子现金终端交易限额 9F7B
         terminal.setvLPTransLimit(new byte[]{(byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x10, (byte) 0x00, (byte) 0x00});
         // capp 支持 DF60

@@ -1,5 +1,7 @@
 package ftsafe.reader.tech;
 
+import android.util.Log;
+
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -12,6 +14,7 @@ import ftsafe.reader.Reader;
  * Created by qingyuan on 2016/7/5.
  */
 public class Iso7816 {
+    private final static String TAG = "com.ftafe.Iso7816";
     public static final byte[] EMPTY = {0};
 
     protected byte[] data;
@@ -666,12 +669,16 @@ public class Iso7816 {
         }
 
         public byte[] transceive(final byte[] cmd) throws IOException {
+            System.out.println("TRANSCEICE APDU:" + Util.toHexString(cmd));
+
             try {
                 byte[] rsp = null;
 
                 byte c[] = cmd;
                 do {
+                    //System.out.println("APDU:" + Util.toHexString(c));
                     byte[] r = reader.transceive(c);
+                    //System.out.println("RESPONSE:" + Util.toHexString(r));
                     if (r == null)
                         break;
 
@@ -697,6 +704,8 @@ public class Iso7816 {
                         n -= 2;
                         for (byte i : r)
                             rsp[n++] = i;
+                        // FIXME: 修改了SW索引
+                        N = rsp.length - 2;
                     }
 
                     if (r[N] != CH_STA_MORE)
@@ -705,6 +714,8 @@ public class Iso7816 {
                     byte s = r[N + 1];
                     if (s != 0) {
                         c = CMD_GETRESPONSE.clone();
+                        // FIXME: 读取循环数据最后一字节是预读长度
+                        c[4] = s;
                     } else {
                         rsp[rsp.length - 1] = CH_STA_OK;
                         break;
@@ -712,9 +723,11 @@ public class Iso7816 {
 
                 } while (true);
 
+                System.out.println("TRANSCEICE RESPONSE:" + Util.toHexString(rsp));
                 return rsp;
 
             } catch (Exception e) {
+                Log.e(TAG, e.getMessage(), e);
                 return Response.ERROR;
             }
         }

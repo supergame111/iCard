@@ -1,10 +1,16 @@
 package com.ftsafe.iccd.ecard;
 
+import android.annotation.SuppressLint;
+import android.annotation.TargetApi;
 import android.app.PendingIntent;
 import android.app.ProgressDialog;
 import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothClass;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothManager;
+import android.bluetooth.le.BluetoothLeScanner;
+import android.bluetooth.le.ScanCallback;
+import android.bluetooth.le.ScanResult;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
@@ -13,6 +19,7 @@ import android.hardware.usb.UsbDevice;
 import android.hardware.usb.UsbManager;
 import android.net.Uri;
 import android.os.AsyncTask;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
@@ -39,6 +46,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.UUID;
 
 import ftsafe.reader.BlueToothReader;
 import ftsafe.reader.MiniPay;
@@ -52,6 +60,7 @@ public class MainActivity extends FragmentActivity implements OnMenuTabClickList
     private FragmentManager mFragmentManager;
     private BottomBar mBottomBar;
     private BluetoothAdapter mBluetoothAdapter;
+    private BluetoothLeScanner mBluetoothScanner = null;
     private BlueToothReceiver mBleReceiver;
     private UsbManager mUsbManager;
     private UsbDevice mUsbDevice;
@@ -236,6 +245,7 @@ public class MainActivity extends FragmentActivity implements OnMenuTabClickList
     }
 
     private void discoverBLEReader() {
+
         if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE)) {
             Toast.makeText(this, "Bluetooth not supported", Toast.LENGTH_SHORT).show();
             finish();
@@ -257,9 +267,22 @@ public class MainActivity extends FragmentActivity implements OnMenuTabClickList
         DeviceNameList.clear();
 
         Log.e(Config.APP_ID, "扫描蓝牙设备");
-        // 开始扫描
-        scanLeDevice(true);
-
+        mProgressDialog.setCancelable(true);
+        mProgressDialog.setMessage("搜索中...");
+        mProgressDialog.show();
+        // 兼容21以上BLE搜索接口
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            if (mBluetoothAdapter != null)
+                mBluetoothScanner = mBluetoothAdapter.getBluetoothLeScanner();
+            // 开始扫描
+            if (mBluetoothScanner != null)
+                scanLeDevice(true);
+            else
+                mProgressDialog.hide();
+        } else {
+            // 开始扫描
+            scanLeDevice(true);
+        }
     }
 
     private void openMiniPay() {
@@ -280,22 +303,84 @@ public class MainActivity extends FragmentActivity implements OnMenuTabClickList
         }
     }
 
-    private void scanLeDevice(final boolean enable) {
-        if (enable) {
-            // Stops scanning after a pre-defined scan period.
-            mHandler.postDelayed(new Runnable() {
-                @Override
-                public void run() {
-                    mBluetoothAdapter.stopLeScan(mLeScanCallback);
-                }
-            }, 30000);
+    public static boolean mScanning = false;
 
-            // 连续扫描30秒
-            boolean i = mBluetoothAdapter.startLeScan(mLeScanCallback);
+    private void scanLeDevice(final boolean enable) {
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            if (enable) {
+                // Stops scanning after a pre-defined scan period.
+                mHandler.postDelayed(new Runnable() {
+                    @Override
+                    public void run() {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                            mScanning = false;
+                            mBluetoothScanner.stopScan(scanCallback);
+                        }
+                    }
+                }, 30000);
+
+                // 连续扫描30秒
+                mScanning = true;
+                mBluetoothScanner.startScan(scanCallback);
+            } else {
+                mScanning = false;
+                mBluetoothScanner.stopScan(scanCallback);
+            }
         } else {
-            mBluetoothAdapter.stopLeScan(mLeScanCallback);
+            if (enable) {
+                // Stops scanning after a pre-defined scan period.
+                mHandler.postDelayed(new Runnable() {
+                    @Override
+                    public void run() {
+                        mScanning = false;
+                        mBluetoothAdapter.stopLeScan(mLeScanCallback);
+                    }
+                }, 30000);
+
+                // 连续扫描30秒
+                mScanning = true;
+                mBluetoothAdapter.startLeScan(mLeScanCallback);
+            } else {
+                mScanning = false;
+                mBluetoothAdapter.stopLeScan(mLeScanCallback);
+            }
         }
     }
+
+    @SuppressLint("NewApi")
+    private ScanCallback scanCallback = new ScanCallback() {
+        @Override
+        public void onScanResult(int callbackType, ScanResult result) {
+            super.onScanResult(callbackType, result);
+            Log.i(Config.APP_ID, "onScanResult: " + callbackType + " ScanResult:" + result);
+            if (result.getScanRecord() != null) {
+                BluetoothDevice device = result.getDevice();
+                String str = device.getName();
+                Log.d(Config.APP_ID, "diviceName=" + str);
+                if (str == null)
+                    str = "UnknownDevice";
+                if (!mBlueToothDeviceList.contains(device) && (null != str && (-1 != str.indexOf("FT")))) {
+                    mProgressDialog.hide();
+                    Log.e(Config.APP_ID, "bluetooth device address " + device.getAddress());
+                    mBlueToothDeviceList.add(device);
+                    DeviceNameList.add(str);
+                    // 打开蓝牙设备选择popup
+                    startActivity(new Intent(MainActivity.this, DeviceActivity.class));
+                }
+            }
+        }
+
+        @Override
+        public void onBatchScanResults(List<ScanResult> results) {
+            super.onBatchScanResults(results);
+        }
+
+        @Override
+        public void onScanFailed(int errorCode) {
+            super.onScanFailed(errorCode);
+        }
+    };
 
     private BluetoothAdapter.LeScanCallback mLeScanCallback = new BluetoothAdapter.LeScanCallback() {
 
@@ -306,9 +391,11 @@ public class MainActivity extends FragmentActivity implements OnMenuTabClickList
                 @Override
                 public void run() {
                     String str = device.getName();
+                    Log.d(Config.APP_ID, "diviceName=" + str);
                     if (str == null)
                         str = "UnknownDevice";
                     if (!mBlueToothDeviceList.contains(device) && (null != str && (-1 != str.indexOf("FT")))) {
+                        mProgressDialog.hide();
                         Log.e(Config.APP_ID, "bluetooth device address " + device.getAddress());
                         mBlueToothDeviceList.add(device);
                         DeviceNameList.add(str);
@@ -404,7 +491,8 @@ public class MainActivity extends FragmentActivity implements OnMenuTabClickList
                             break;
                         case BlueToothReceiver.BLETOOTH_DISCONNECT:
                             //Once bluetooth disconnection, change UI
-
+                            BtReader.readerClose();
+                            BtReader = null;
                             break;
                     }
                 case UsbBrocastReceiver.USB_STATUS:
@@ -450,8 +538,10 @@ public class MainActivity extends FragmentActivity implements OnMenuTabClickList
                 openMiniPay();
                 break;
             case 1:
-                // 搜索BLE
-                discoverBLEReader();
+                if (BtReader == null) {
+                    // 搜索BLE
+                    discoverBLEReader();
+                }
                 break;
             case 2:
                 // NFC

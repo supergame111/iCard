@@ -1,13 +1,12 @@
 apply plugin: 'com.android.application'
-
 android {
-    compileSdkVersion 22
-    buildToolsVersion "21.1.2"
+    compileSdkVersion 21
+    buildToolsVersion '21.1.2'
 
     defaultConfig {
         applicationId "com.sinpo.xnfc"
         minSdkVersion 10
-        targetSdkVersion 22
+        targetSdkVersion 21
     }
 
     buildTypes {
@@ -16,4 +15,7 @@ android {
             proguardFiles 'proguard.cfg'
         }
     }
+}
+
+dependencies {
 }

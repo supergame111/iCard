@@ -61,8 +61,11 @@ public class StandardECash extends StandardPboc {
     @Override
     protected boolean reset(Iso7816.StdTag tag) throws IOException {
         Iso7816.Response rsp = tag.selectByName(DFN_PPSE);
-        if (!rsp.isOkey())
-            return false;
+        if (!rsp.isOkey()){
+            rsp = tag.selectByName(DFN_PSE);
+            if (!rsp.isOkey())
+                return false;
+        }
 
         BerTLV.extractPrimitives(topTLVs, rsp);
         return true;

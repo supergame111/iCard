@@ -7,6 +7,10 @@
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
     <uses-permission android:name="android.permission.NFC" />
 
+    <uses-sdk
+        android:minSdkVersion="18"
+        android:targetSdkVersion="21" />
+
     <!-- app can run on NFC -->
     <uses-feature
         android:name="android.hardware.nfc"
